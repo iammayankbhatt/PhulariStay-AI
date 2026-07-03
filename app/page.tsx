@@ -11,6 +11,7 @@ import { getHomestays } from "@/services/homestay.service";
 import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 
+import HomestayCard from "@/components/HomestayCard";
 export default function Home() {
 
   const [homestays, setHomestays] = useState<Homestay[]>([]);
@@ -58,19 +59,21 @@ export default function Home() {
       )}
 
       <section className="mx-auto max-w-7xl px-6 py-16">
-        <h2 className="mb-10 text-center text-3xl font-bold">
-          Featured Homestays
-        </h2>
+        <div className="mb-10 text-center">
+          <h2 className="text-4xl font-bold">
+            Discover Beautiful Homestays
+          </h2>
 
-        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+          <p className="mt-3 text-gray-500 dark:text-gray-400">
+            Handpicked stays across Uttarakhand with AI-powered travel planning.
+          </p>
+        </div>
 
+        <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
           {homestays.map((stay) => (
-            <Card
+            <HomestayCard
               key={stay.id}
-              title={stay.name}
-              description={`${stay.location} • ₹${stay.price}/night • ⭐ ${stay.rating}`}
-              image={stay.image}
-              buttonText="View Details"
+              homestay={stay}
             />
           ))}
         </div>

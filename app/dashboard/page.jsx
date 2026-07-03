@@ -129,7 +129,7 @@ export default function DashboardPage() {
           <section className="grid gap-6 lg:grid-cols-3">
 
             {/* Recent Bookings */}
-            <div cclassName="rounded-2xl bg-stone-200 p-4 md:p-6 shadow-md dark:bg-gray-900 lg:col-span-2">
+            <div className="rounded-2xl bg-stone-200 p-4 md:p-6 shadow-md dark:bg-gray-900 lg:col-span-2">
               <h2 className="mb-4 text-2xl font-semibold">
                 Recent Bookings
               </h2>
