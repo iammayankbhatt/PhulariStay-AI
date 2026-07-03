@@ -1,56 +1,71 @@
 import * as service from "../services/homestay.service.js";
 
-export const getAll = (req, res) => {
-  res.status(200).json(service.getAllHomestays());
-};
-
-export const getOne = (req, res) => {
-  const homestay = service.getHomestayById(req.params.id);
-
-  if (!homestay) {
-    return res.status(404).json({
-      message: "Homestay not found",
-    });
+export const getAll = async (req, res, next) => {
+  try {
+    const homestays = await service.getAllHomestays();
+    res.status(200).json(homestays);
+  } catch (error) {
+    next(error);
   }
-
-  res.status(200).json(homestay);
 };
 
-export const search = (req, res) => {
-  const result = service.searchHomestays(req.query.q || "");
+export const getOne = async (req, res, next) => {
+  try {
+    const homestay = await service.getHomestayById(req.params.id);
 
-  res.status(200).json(result);
-};
+    if (!homestay) {
+      return res.status(404).json({
+        message: "Homestay not found",
+      });
+    }
 
-export const create = (req, res) => {
-  const homestay = service.createHomestay(req.body);
-
-  res.status(201).json(homestay);
-};
-
-export const update = (req, res) => {
-  const homestay = service.updateHomestay(
-    req.params.id,
-    req.body
-  );
-
-  if (!homestay) {
-    return res.status(404).json({
-      message: "Homestay not found",
-    });
+    res.status(200).json(homestay);
+  } catch (error) {
+    next(error);
   }
-
-  res.status(200).json(homestay);
 };
 
-export const remove = (req, res) => {
-  const deleted = service.deleteHomestay(req.params.id);
+export const search = async (req, res, next) => {
+  try {
+    const homestays = await service.searchHomestays(
+      req.query.q || ""
+    );
 
-  if (!deleted) {
-    return res.status(404).json({
-      message: "Homestay not found",
-    });
+    res.status(200).json(homestays);
+  } catch (error) {
+    next(error);
   }
+};
 
-  res.status(204).send();
+export const create = async (req, res, next) => {
+  try {
+    const homestay = await service.createHomestay(req.body);
+
+    res.status(201).json(homestay);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const update = async (req, res, next) => {
+  try {
+    const homestay = await service.updateHomestay(
+      req.params.id,
+      req.body
+    );
+
+    res.status(200).json(homestay);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const remove = async (req, res, next) => {
+  try {
+    await service.deleteHomestay(req.params.id);
+
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
 };

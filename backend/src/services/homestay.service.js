@@ -1,52 +1,74 @@
-import { homestays } from "../data/homestays.js";
+import prisma from "../config/prisma.js";
 
-export const getAllHomestays = () => homestays;
+export async function getAllHomestays() {
+  return prisma.homestay.findMany({
+    include: {
+      owner: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+        },
+      },
+      rooms: true,
+      reviews: true,
+    },
+  });
+}
 
-export const getHomestayById = (id) =>
-  homestays.find((h) => h.id === Number(id));
+export async function getHomestayById(id) {
+  return prisma.homestay.findUnique({
+    where: {
+      id,
+    },
+    include: {
+      owner: true,
+      rooms: true,
+      reviews: true,
+    },
+  });
+}
 
-export const searchHomestays = (query) => {
-  return homestays.filter(
-    (h) =>
-      h.name.toLowerCase().includes(query.toLowerCase()) ||
-      h.location.toLowerCase().includes(query.toLowerCase())
-  );
-};
+export async function searchHomestays(query) {
+  return prisma.homestay.findMany({
+    where: {
+      OR: [
+        {
+          name: {
+            contains: query,
+            mode: "insensitive",
+          },
+        },
+        {
+          location: {
+            contains: query,
+            mode: "insensitive",
+          },
+        },
+      ],
+    },
+  });
+}
 
-export const createHomestay = (data) => {
-  const newHomestay = {
-    id: homestays.length + 1,
-    ...data,
-  };
+export async function createHomestay(data) {
+  return prisma.homestay.create({
+    data,
+  });
+}
 
-  homestays.push(newHomestay);
+export async function updateHomestay(id, data) {
+  return prisma.homestay.update({
+    where: {
+      id,
+    },
+    data,
+  });
+}
 
-  return newHomestay;
-};
-
-export const updateHomestay = (id, data) => {
-  const index = homestays.findIndex(
-    (h) => h.id === Number(id)
-  );
-
-  if (index === -1) return null;
-
-  homestays[index] = {
-    ...homestays[index],
-    ...data,
-  };
-
-  return homestays[index];
-};
-
-export const deleteHomestay = (id) => {
-  const index = homestays.findIndex(
-    (h) => h.id === Number(id)
-  );
-
-  if (index === -1) return false;
-
-  homestays.splice(index, 1);
-
-  return true;
-};
+export async function deleteHomestay(id) {
+  return prisma.homestay.delete({
+    where: {
+      id,
+    },
+  });
+}
