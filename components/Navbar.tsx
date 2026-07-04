@@ -13,7 +13,7 @@ export default function Navbar() {
           href="/"
           className="text-2xl font-bold text-green-700 dark:text-green-500"
         >
-          PahadiStay AI
+          PhulariStay AI
         </Link>
 
         {/* Navigation Links - FIX: Added text-gray-900 (light mode) and dark:text-gray-100 (dark mode) */}

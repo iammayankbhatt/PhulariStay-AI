@@ -1,4 +1,4 @@
-# PahadiStay AI Backend
+# PhulariStay AI Backend
 
 ## Run Locally
 

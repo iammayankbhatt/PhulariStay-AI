@@ -6,7 +6,7 @@ export default function Footer() {
       <div className="mx-auto max-w-7xl px-6 py-6 md:py-10">
         
         <h2 className="text-xl font-bold text-green-700 dark:text-green-500">
-          PahadiStay AI
+          PhulariStay AI
         </h2>
 
         <div className="mt-4 flex flex-col gap-2 md:flex-row md:gap-6 text-gray-600 dark:text-gray-300">
@@ -22,7 +22,7 @@ export default function Footer() {
         </div>
 
         <p className="mt-6 text-sm text-gray-500 dark:text-gray-400">
-          © 2026 PahadiStay AI. All Rights Reserved.
+          © 2026 PhulariStay AI. All Rights Reserved.
         </p>
       </div>
     </footer>

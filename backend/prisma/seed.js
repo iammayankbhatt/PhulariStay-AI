@@ -19,7 +19,7 @@ async function main() {
   const owner = await prisma.user.create({
     data: {
       fullName: "Rahul Bisht",
-      email: "owner@pahadistay.com",
+      email: "owner@PhulariStay.com",
       password: "123456",
       phone: "9999999999",
       role: "OWNER",
@@ -29,7 +29,7 @@ async function main() {
   const owner2 = await prisma.user.create({
     data: {
       fullName: "Anjali Rawat",
-      email: "anjali@pahadistay.com",
+      email: "anjali@PhulariStay.com",
       password: "123456",
       phone: "8888888888",
       role: "OWNER",
@@ -40,7 +40,7 @@ async function main() {
   const admin = await prisma.user.create({
     data: {
       fullName: "Admin",
-      email: "admin@pahadistay.com",
+      email: "admin@PhulariStay.com",
       password: "123456",
       phone: "7777777777",
       role: "ADMIN",

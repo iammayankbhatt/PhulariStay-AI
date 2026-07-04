@@ -32,7 +32,7 @@ app.use(errorHandler);
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
-    message: "PahadiStay AI Backend Running",
+    message: "PhulariStay AI Backend Running",
   });
 });
 

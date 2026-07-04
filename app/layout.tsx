@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
 export const metadata: Metadata = {
-  title: "PahadiStay AI",
+  title: "PhulariStay AI",
   description:
     "Smart Homestay Discovery, Booking & Travel Planning Platform",
 };
