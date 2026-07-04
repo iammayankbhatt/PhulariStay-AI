@@ -65,3 +65,10 @@ PORT
 CLIENT_URL
 NODE_ENV
 ```
+
+
+
+## Database Schema
+![ER Diagram](docs/database_design-1.png)
+
+---
