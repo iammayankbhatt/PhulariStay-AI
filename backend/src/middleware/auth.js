@@ -1,19 +1,41 @@
 import prisma from "../config/prisma.js";
 import { verifyJwt } from "../utils/jwt.js";
 
+const getBearerToken = (authHeader) => {
+  if (!authHeader || typeof authHeader !== "string") {
+    return null;
+  }
+
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+
+  if (!match?.[1]) {
+    return null;
+  }
+
+  return match[1].trim().replace(/^["']|["']$/g, "");
+};
+
 export const verifyToken = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
+    const token = getBearerToken(req.headers.authorization);
 
-    if (!authHeader?.startsWith("Bearer ")) {
+    if (!token) {
       return res.status(401).json({
         success: false,
-        message: "Authentication token is required",
+        message:
+          "Authentication token is required. Use Authorization: Bearer <token>",
       });
     }
 
-    const token = authHeader.split(" ")[1];
     const payload = verifyJwt(token);
+
+    if (!payload?.id) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid authentication token payload",
+      });
+    }
+
     const user = await prisma.user.findUnique({
       where: {
         id: payload.id,
@@ -36,7 +58,11 @@ export const verifyToken = async (req, res, next) => {
 
     req.user = user;
     next();
-  } catch {
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.error("JWT verification failed:", error.message);
+    }
+
     return res.status(401).json({
       success: false,
       message: "Invalid or expired authentication token",

@@ -6,13 +6,14 @@ const getJwtSecret = () => {
     throw new Error("JWT_SECRET is required");
   }
 
-  return env.JWT_SECRET;
+  return env.JWT_SECRET.trim();
 };
 
 export const signToken = (user) =>
   jwt.sign(
     {
       id: user.id,
+      sub: user.id,
       email: user.email,
       role: user.role,
     },
