@@ -36,7 +36,7 @@ model User {
 
   password String
 
-  phone String @unique
+  phone String? @unique
 
   profileImage String?
 

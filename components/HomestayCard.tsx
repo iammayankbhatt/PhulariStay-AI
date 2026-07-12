@@ -17,7 +17,7 @@ interface Homestay {
   id: string;
   name: string;
   location: string;
-  image: string;
+  image?: string;
   images?: string[];
   isVerified: boolean;
   rooms: Room[];
@@ -47,7 +47,7 @@ export default function HomestayCard({ homestay }: { homestay: Homestay }) {
     <div className="overflow-hidden rounded-2xl bg-white shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:bg-gray-900">
       <div className="relative">
         <img
-          src={homestay.images?.[0] || homestay.image}
+          src={homestay.images?.[0] || homestay.image || "/window.svg"}
           alt={homestay.name}
           className="h-60 w-full object-cover"
         />

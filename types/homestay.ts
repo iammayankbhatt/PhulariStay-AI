@@ -1,10 +1,23 @@
 export interface Homestay {
-  id: number;
+  id: string;
   name: string;
   location: string;
-  price: number;
-  rating: number;
-  rooms: number;
+  latitude?: number;
+  longitude?: number;
+  address?: string;
+  pricePerNight?: number;
   description: string;
-  image: string;
+  image?: string;
+  images?: string[];
+  amenities?: string[];
+  isVerified: boolean;
+  rooms: {
+    id: string;
+    price: number;
+    availableRooms: number;
+  }[];
+  reviews: {
+    id: string;
+    rating: number;
+  }[];
 }

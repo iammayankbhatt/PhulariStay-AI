@@ -13,12 +13,18 @@ type ButtonProps = {
   children: React.ReactNode;
   variant?: "primary" | "secondary" | "outline";
   onClick?: () => void;
+  type?: "button" | "submit" | "reset";
+  disabled?: boolean;
+  className?: string;
 };
 
 export default function Button({
   children,
   variant = "primary",
   onClick,
+  type = "button",
+  disabled = false,
+  className = "",
 }: ButtonProps) {
   const variants = {
     primary:
@@ -31,8 +37,10 @@ export default function Button({
 
   return (
     <button
+      type={type}
       onClick={onClick}
-      className={`rounded-lg px-4 py-2 font-medium transition ${variants[variant]}`}
+      disabled={disabled}
+      className={`rounded-lg px-4 py-2 font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${variants[variant]} ${className}`}
     >
       {children}
     </button>

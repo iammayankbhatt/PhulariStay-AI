@@ -1,5 +1,6 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 export default function DashboardPage() {
   const stats = [
@@ -22,7 +23,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <>
+    <ProtectedRoute>
       <Navbar />
 
       <main className="min-h-screen bg-stone-100 px-4 py-4 md:px-6 md:py-8 transition-colors duration-200 dark:bg-gray-950">
@@ -163,7 +164,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Quick Actions */}
-            <div cclassName="rounded-2xl bg-stone-200 p-4 md:p-6 shadow-md dark:bg-gray-900">
+            <div className="rounded-2xl bg-stone-200 p-4 md:p-6 shadow-md dark:bg-gray-900">
               <h2 className="mb-4 text-2xl font-semibold">
                 Quick Actions
               </h2>
@@ -190,6 +191,6 @@ export default function DashboardPage() {
       </main>
 
       <Footer />
-    </>
+    </ProtectedRoute>
   );
 }

@@ -64,6 +64,68 @@ DATABASE_URL
 PORT
 CLIENT_URL
 NODE_ENV
+JWT_SECRET
+JWT_EXPIRES_IN
+GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET
+GOOGLE_CALLBACK_URL
+```
+
+Frontend environment variables:
+
+```
+NEXT_PUBLIC_API_URL=http://localhost:5000/api
+```
+
+## Authentication Flow
+
+PhulariStay AI uses JWT authentication for API access.
+
+- Users register with `name`, `email`, `password`, and `role`.
+- Passwords are hashed with bcrypt before storage.
+- Public registration allows only `USER` and `OWNER`; `ADMIN` accounts must be created administratively.
+- Login returns a JWT that expires in 7 days by default.
+- The frontend stores the JWT in `localStorage` and sends it through the Axios `Authorization: Bearer <token>` header.
+- `GET /api/auth/me` refreshes the frontend user session after page reloads.
+- Logout clears the local session and calls the backend logout endpoint.
+
+Protected backend mutations:
+
+- `POST /api/homestays` requires `OWNER` or `ADMIN`.
+- `PUT /api/homestays/:id` requires the owning `OWNER` or `ADMIN`.
+- `DELETE /api/homestays/:id` requires the owning `OWNER` or `ADMIN`.
+- `POST /api/bookings` requires an authenticated user.
+- `POST /api/reviews` requires an authenticated user.
+
+Protected frontend routes:
+
+- `/dashboard`
+- `/profile`
+- `/owner` for `OWNER` and `ADMIN`
+
+## Google OAuth Setup
+
+Create OAuth credentials in Google Cloud Console and add this callback URL:
+
+```
+http://localhost:5000/api/auth/google/callback
+```
+
+Set these backend environment variables:
+
+```
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_CALLBACK_URL=http://localhost:5000/api/auth/google/callback
+CLIENT_URL=http://localhost:3000
+JWT_SECRET=replace-with-a-long-random-secret
+JWT_EXPIRES_IN=7d
+```
+
+Google login starts at:
+
+```
+GET /api/auth/google
 ```
 
 

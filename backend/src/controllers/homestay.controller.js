@@ -39,7 +39,10 @@ export const search = async (req, res, next) => {
 
 export const create = async (req, res, next) => {
   try {
-    const homestay = await service.createHomestay(req.body);
+    const homestay = await service.createHomestay({
+      ...req.body,
+      ownerId: req.user.id,
+    });
 
     res.status(201).json(homestay);
   } catch (error) {
@@ -49,6 +52,23 @@ export const create = async (req, res, next) => {
 
 export const update = async (req, res, next) => {
   try {
+    const existingHomestay = await service.getHomestayById(req.params.id);
+
+    if (!existingHomestay) {
+      return res.status(404).json({
+        message: "Homestay not found",
+      });
+    }
+
+    if (
+      req.user.role !== "ADMIN" &&
+      existingHomestay.ownerId !== req.user.id
+    ) {
+      return res.status(403).json({
+        message: "Only the owner can update this homestay",
+      });
+    }
+
     const homestay = await service.updateHomestay(
       req.params.id,
       req.body
@@ -62,6 +82,23 @@ export const update = async (req, res, next) => {
 
 export const remove = async (req, res, next) => {
   try {
+    const existingHomestay = await service.getHomestayById(req.params.id);
+
+    if (!existingHomestay) {
+      return res.status(404).json({
+        message: "Homestay not found",
+      });
+    }
+
+    if (
+      req.user.role !== "ADMIN" &&
+      existingHomestay.ownerId !== req.user.id
+    ) {
+      return res.status(403).json({
+        message: "Only the owner can delete this homestay",
+      });
+    }
+
     await service.deleteHomestay(req.params.id);
 
     res.status(204).send();

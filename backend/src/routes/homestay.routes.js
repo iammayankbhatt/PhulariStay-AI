@@ -1,6 +1,12 @@
 import express from "express";
 
 import * as controller from "../controllers/homestay.controller.js";
+import { verifyToken, requireRole } from "../middleware/auth.js";
+import { validateRequest } from "../middleware/validate.js";
+import {
+  createHomestayValidator,
+  updateHomestayValidator,
+} from "../validators/homestay.validator.js";
 
 const router = express.Router();
 
@@ -10,10 +16,29 @@ router.get("/search", controller.search);
 
 router.get("/:id", controller.getOne);
 
-router.post("/", controller.create);
+router.post(
+  "/",
+  verifyToken,
+  requireRole("OWNER", "ADMIN"),
+  createHomestayValidator,
+  validateRequest,
+  controller.create
+);
 
-router.put("/:id", controller.update);
+router.put(
+  "/:id",
+  verifyToken,
+  requireRole("OWNER", "ADMIN"),
+  updateHomestayValidator,
+  validateRequest,
+  controller.update
+);
 
-router.delete("/:id", controller.remove);
+router.delete(
+  "/:id",
+  verifyToken,
+  requireRole("OWNER", "ADMIN"),
+  controller.remove
+);
 
 export default router;

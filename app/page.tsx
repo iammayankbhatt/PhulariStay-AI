@@ -2,7 +2,6 @@
 
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
-import Card from "@/components/Card";
 import Footer from "@/components/Footer";
 
 import { useEffect, useState } from "react";
