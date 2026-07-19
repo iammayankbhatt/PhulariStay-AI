@@ -13,4 +13,5 @@ export const env = {
   GOOGLE_CALLBACK_URL:
     process.env.GOOGLE_CALLBACK_URL ||
     "http://localhost:5000/api/auth/google/callback",
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY,
 };

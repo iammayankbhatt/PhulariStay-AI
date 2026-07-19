@@ -10,6 +10,7 @@ import authRoutes from "./routes/auth.routes.js";
 import bookingRoutes from "./routes/booking.routes.js";
 import homestayRoutes from "./routes/homestay.routes.js";
 import reviewRoutes from "./routes/review.routes.js";
+import aiRoutes from "./routes/ai.routes.js";
 
 import { notFound } from "./middleware/notFound.js";
 
@@ -35,6 +36,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/homestays", homestayRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/reviews", reviewRoutes);
+app.use("/api/ai", aiRoutes);
 
 app.get("/", (req, res) => {
   res.status(200).json({

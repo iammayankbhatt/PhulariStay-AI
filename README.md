@@ -69,6 +69,7 @@ JWT_EXPIRES_IN
 GOOGLE_CLIENT_ID
 GOOGLE_CLIENT_SECRET
 GOOGLE_CALLBACK_URL
+GEMINI_API_KEY
 ```
 
 Frontend environment variables:
@@ -127,6 +128,58 @@ Google login starts at:
 ```
 GET /api/auth/google
 ```
+
+## AI Feature
+
+PhulariStay AI includes an AI Travel Planner powered by Google Gemini 2.5 Flash.
+Users can open `/ai`, enter a destination in Uttarakhand, duration, budget,
+travel style, and interests, then generate a markdown travel plan.
+
+Before calling Gemini, the backend queries PostgreSQL through Prisma for
+homestays matching the destination by name, location, or address. The prompt
+includes only those database homestays and instructs Gemini not to invent stay
+names, prices, amenities, ratings, addresses, or availability.
+
+The backend endpoint is:
+
+```
+POST http://localhost:5000/api/ai/travel-plan
+```
+
+Example request:
+
+```json
+{
+  "destination": "Auli",
+  "days": 3,
+  "budget": 15000,
+  "travelStyle": "Family",
+  "interests": "Snow, Trekking, Local Food"
+}
+```
+
+Example response:
+
+```json
+{
+  "success": true,
+  "plan": "## Short Overview\n..."
+}
+```
+
+The Gemini API key must be stored only in `backend/.env`:
+
+```
+GEMINI_API_KEY=your-gemini-api-key
+```
+
+To obtain a Gemini API key:
+
+1. Visit Google AI Studio.
+2. Sign in with a Google account.
+3. Open API keys and create a new key.
+4. Add the key to `backend/.env`.
+5. Restart the backend server.
 
 
 
