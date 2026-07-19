@@ -22,8 +22,7 @@ export const verifyToken = async (req, res, next) => {
     if (!token) {
       return res.status(401).json({
         success: false,
-        message:
-          "Authentication token is required. Use Authorization: Bearer <token>",
+        message: "Authentication required",
       });
     }
 
@@ -32,7 +31,7 @@ export const verifyToken = async (req, res, next) => {
     if (!payload?.id) {
       return res.status(401).json({
         success: false,
-        message: "Invalid authentication token payload",
+        message: "Invalid or expired authentication token",
       });
     }
 
@@ -52,7 +51,7 @@ export const verifyToken = async (req, res, next) => {
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: "Invalid authentication token",
+        message: "Invalid or expired authentication token",
       });
     }
 

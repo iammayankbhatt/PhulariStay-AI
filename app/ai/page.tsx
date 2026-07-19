@@ -5,9 +5,12 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Clipboard, Download, Sparkles } from "lucide-react";
 import { jsPDF } from "jspdf";
+import { useRouter } from "next/navigation";
 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import { useAuth } from "@/components/AuthContext";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
@@ -31,6 +34,8 @@ const initialForm: TravelPlanForm = {
 };
 
 export default function AiTravelPlannerPage() {
+  const router = useRouter();
+  const { token } = useAuth();
   const [form, setForm] = useState<TravelPlanForm>(initialForm);
   const [plan, setPlan] = useState("");
   const [loading, setLoading] = useState(false);
@@ -132,6 +137,7 @@ export default function AiTravelPlannerPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           destination: form.destination.trim(),
@@ -143,6 +149,12 @@ export default function AiTravelPlannerPage() {
       });
 
       const data = await response.json();
+
+      if (response.status === 401) {
+        showError("Please log in to use the AI Travel Planner.");
+        window.setTimeout(() => router.replace("/login"), 1200);
+        return;
+      }
 
       if (!response.ok || !data.success) {
         throw new Error(data.message || "Unable to generate a travel plan.");
@@ -161,7 +173,7 @@ export default function AiTravelPlannerPage() {
   };
 
   return (
-    <>
+    <ProtectedRoute>
       <Navbar />
 
       <main className="min-h-screen bg-stone-100 px-4 py-10 text-gray-950 dark:bg-gray-950 dark:text-gray-100 sm:px-6 lg:px-8">
@@ -402,6 +414,6 @@ export default function AiTravelPlannerPage() {
       </main>
 
       <Footer />
-    </>
+    </ProtectedRoute>
   );
 }
