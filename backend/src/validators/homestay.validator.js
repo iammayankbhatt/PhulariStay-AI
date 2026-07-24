@@ -18,6 +18,28 @@ export const createHomestayValidator = [
     .optional()
     .isArray()
     .withMessage("Amenities must be an array"),
+  body("rooms")
+    .isArray({ min: 1 })
+    .withMessage("At least one room type is required"),
+  body("rooms.*.roomType")
+    .isIn(["STANDARD", "DELUXE", "FAMILY", "DORMITORY"])
+    .withMessage("Room type is invalid"),
+  body("rooms.*.totalRooms")
+    .isInt({ min: 1 })
+    .withMessage("Total rooms must be at least 1"),
+  body("rooms.*.availableRooms")
+    .isInt({ min: 0 })
+    .withMessage("Available rooms must be 0 or more"),
+  body("rooms.*.capacity")
+    .isInt({ min: 1 })
+    .withMessage("Capacity must be at least 1"),
+  body("rooms.*.price")
+    .isFloat({ min: 0 })
+    .withMessage("Room price must be a positive number"),
+  body("rooms.*.images")
+    .optional()
+    .isArray()
+    .withMessage("Room images must be an array"),
 ];
 
 export const updateHomestayValidator = [
@@ -47,4 +69,29 @@ export const updateHomestayValidator = [
     .optional()
     .isArray()
     .withMessage("Amenities must be an array"),
+  body("rooms").optional().isArray({ min: 1 }).withMessage("At least one room type is required"),
+  body("rooms.*.roomType")
+    .optional()
+    .isIn(["STANDARD", "DELUXE", "FAMILY", "DORMITORY"])
+    .withMessage("Room type is invalid"),
+  body("rooms.*.totalRooms")
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage("Total rooms must be at least 1"),
+  body("rooms.*.availableRooms")
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage("Available rooms must be 0 or more"),
+  body("rooms.*.capacity")
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage("Capacity must be at least 1"),
+  body("rooms.*.price")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage("Room price must be a positive number"),
+  body("rooms.*.images")
+    .optional()
+    .isArray()
+    .withMessage("Room images must be an array"),
 ];

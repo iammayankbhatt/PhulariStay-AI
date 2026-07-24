@@ -16,8 +16,8 @@ enum UserRole {
 enum BookingStatus {
   PENDING
   CONFIRMED
+  REJECTED
   CANCELLED
-  COMPLETED
 }
 
 enum RoomType {
@@ -131,6 +131,10 @@ model Room {
 
   price Float
 
+  images String[] @default([])
+
+  bookings Booking[]
+
   @@index([homestayId])
 }
 
@@ -140,10 +144,12 @@ model Booking {
   userId String
 
   homestayId String
+  roomId String
 
   user User @relation(fields: [userId], references: [id])
 
   homestay Homestay @relation(fields: [homestayId], references: [id])
+  room Room @relation(fields: [roomId], references: [id])
 
   checkIn DateTime
 
@@ -159,6 +165,7 @@ model Booking {
 
   @@index([userId])
   @@index([homestayId])
+  @@index([roomId])
   @@index([status])
 }
 

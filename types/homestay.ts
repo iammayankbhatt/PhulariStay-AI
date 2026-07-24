@@ -14,13 +14,39 @@ export interface Homestay {
   isVerified: boolean;
   rooms: {
     id: string;
+    roomType?: string;
+    totalRooms?: number;
+    capacity?: number;
     price: number;
+    images?: string[];
     availableRooms: number;
+    bookings?: {
+      id: string;
+      checkIn: string;
+      checkOut: string;
+      status: string;
+    }[];
   }[];
   reviews: {
     id: string;
     rating: number;
+    comment?: string;
+    createdAt?: string;
+    user?: {
+      id: string;
+      fullName: string;
+    };
   }[];
+  owner?: {
+    id: string;
+    fullName: string;
+    email: string;
+    profileImage?: string | null;
+    civicScore?: {
+      score: number;
+      totalReports: number;
+    } | null;
+  };
 }
 
 export type HomestayPayload = {
@@ -33,4 +59,13 @@ export type HomestayPayload = {
   description: string;
   images: string[];
   amenities: string[];
+  rooms: {
+    id?: string;
+    roomType: string;
+    totalRooms: number;
+    availableRooms: number;
+    capacity: number;
+    price: number;
+    images: string[];
+  }[];
 };

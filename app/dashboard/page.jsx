@@ -18,11 +18,13 @@ import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import Button from "@/components/ui/Button";
 import { getApiErrorMessage } from "@/lib/api";
+import { cancelBooking, getMyBookings } from "@/services/booking.service";
 import { getHomestays } from "@/services/homestay.service";
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const [dashboard, setDashboard] = useState(null);
+  const [cancellingId, setCancellingId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -31,12 +33,15 @@ export default function DashboardPage() {
     setError("");
 
     try {
-      const homestays = await getHomestays();
+      const [homestays, bookings] = await Promise.all([
+        getHomestays(),
+        getMyBookings(),
+      ]);
       setDashboard({
         user,
         homestays,
-        savedTrips: [],
-        recentActivity: [],
+        savedTrips: bookings,
+        recentActivity: bookings.slice(0, 5),
       });
     } catch (error) {
       console.error(error);
@@ -77,6 +82,24 @@ export default function DashboardPage() {
       },
     ],
     [recentActivity.length, savedTrips.length, totalHomestays]
+  );
+
+  const handleCancelBooking = useCallback(
+    async (id) => {
+      setCancellingId(id);
+      setError("");
+
+      try {
+        await cancelBooking(id);
+        await fetchDashboard();
+      } catch (error) {
+        console.error(error);
+        setError(getApiErrorMessage(error, "Unable to cancel booking request."));
+      } finally {
+        setCancellingId("");
+      }
+    },
+    [fetchDashboard]
   );
 
   return (
@@ -182,7 +205,28 @@ export default function DashboardPage() {
                           key={trip.id}
                           className="rounded-lg border border-gray-200 p-4 dark:border-gray-800"
                         >
-                          {trip.name}
+                          <Link
+                            href={`/homestays/${trip.homestayId}`}
+                            className="font-medium hover:text-green-700"
+                          >
+                            {trip.homestay?.name || "Booking request"}
+                          </Link>
+                          <p className="mt-1 text-sm text-gray-500">
+                            {trip.status} · Rs {trip.totalPrice}
+                          </p>
+                          {trip.status === "PENDING" ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="mt-3"
+                              disabled={cancellingId === trip.id}
+                              onClick={() => handleCancelBooking(trip.id)}
+                            >
+                              {cancellingId === trip.id
+                                ? "Cancelling..."
+                                : "Cancel Request"}
+                            </Button>
+                          ) : null}
                         </div>
                       ))}
                     </div>
@@ -211,7 +255,12 @@ export default function DashboardPage() {
                           key={activity.id}
                           className="rounded-lg border border-gray-200 p-4 dark:border-gray-800"
                         >
-                          {activity.title}
+                          <p className="font-medium">
+                            {activity.homestay?.name || "Booking activity"}
+                          </p>
+                          <p className="mt-1 text-sm text-gray-500">
+                            {activity.status}
+                          </p>
                         </div>
                       ))}
                     </div>
