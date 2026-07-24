@@ -29,7 +29,6 @@ export default function Home() {
       const data = await getHomestays();
       setHomestays(data);
     } catch (error) {
-      console.error(error);
       setError(
         getApiErrorMessage(error, "Unable to fetch homestays.")
       );

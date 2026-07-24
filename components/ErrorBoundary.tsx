@@ -25,10 +25,6 @@ export default class ErrorBoundary extends Component<
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error) {
-    console.error(error);
-  }
-
   reset = () => {
     this.setState({ hasError: false });
   };

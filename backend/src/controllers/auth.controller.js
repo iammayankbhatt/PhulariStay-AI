@@ -51,6 +51,19 @@ export const me = async (req, res, next) => {
   }
 };
 
+export const updateMe = async (req, res, next) => {
+  try {
+    const user = await authService.updateCurrentUser(req.user.id, req.body);
+
+    res.status(200).json({
+      success: true,
+      user,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const googleCallback = (req, res) => {
   const token = signToken(req.user);
   const params = new URLSearchParams({

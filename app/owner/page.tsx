@@ -2,12 +2,17 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
+  BarChart3,
+  CalendarCheck,
+  CheckCircle2,
   Edit3,
   Home,
   Image as ImageIcon,
   MapPin,
   Plus,
+  Star,
   Trash2,
+  XCircle,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -216,7 +221,6 @@ export default function OwnerPage() {
       setHomestays(homestayData);
       setBookingRequests(requestData);
     } catch (error) {
-      console.error(error);
       setToast({
         message: getApiErrorMessage(error, "Unable to fetch homestays."),
         type: "error",
@@ -253,6 +257,111 @@ export default function OwnerPage() {
     () =>
       bookingRequests.filter((booking) => booking.status === "PENDING").length,
     [bookingRequests]
+  );
+
+  const ownerStats = useMemo(() => {
+    const confirmedBookings = bookingRequests.filter(
+      (booking) => booking.status === "CONFIRMED"
+    );
+    const rejectedBookings = bookingRequests.filter(
+      (booking) => booking.status === "REJECTED"
+    );
+    const totalRooms = ownerHomestays.reduce(
+      (sum, homestay) =>
+        sum +
+        homestay.rooms.reduce(
+          (roomSum, room) => roomSum + (room.totalRooms || 0),
+          0
+        ),
+      0
+    );
+    const availableRooms = ownerHomestays.reduce(
+      (sum, homestay) =>
+        sum +
+        homestay.rooms.reduce(
+          (roomSum, room) => roomSum + (room.availableRooms || 0),
+          0
+        ),
+      0
+    );
+    const ratings = ownerHomestays.flatMap((homestay) =>
+      (homestay.reviews || []).map((review) => review.rating)
+    );
+    const revenue = confirmedBookings.reduce(
+      (sum, booking) => sum + (booking.totalPrice || 0),
+      0
+    );
+    const occupancy = totalRooms
+      ? Math.round(((totalRooms - availableRooms) / totalRooms) * 100)
+      : 0;
+    const averageRating = ratings.length
+      ? (
+          ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length
+        ).toFixed(1)
+      : "0.0";
+
+    return {
+      revenue,
+      bookings: bookingRequests.length,
+      approved: confirmedBookings.length,
+      rejected: rejectedBookings.length,
+      occupancy,
+      averageRating,
+      recentReviews: ownerHomestays
+        .flatMap((homestay) =>
+          (homestay.reviews || []).map((review) => ({
+            ...review,
+            homestayName: homestay.name,
+          }))
+        )
+        .slice(0, 4),
+    };
+  }, [bookingRequests, ownerHomestays]);
+
+  const quickStats = useMemo(
+    () => [
+      {
+        label: "My Properties",
+        value: ownerHomestays.length,
+        icon: Home,
+      },
+      {
+        label: "Revenue",
+        value: `Rs ${ownerStats.revenue}`,
+        icon: BarChart3,
+      },
+      {
+        label: "Bookings",
+        value: ownerStats.bookings,
+        icon: CalendarCheck,
+      },
+      {
+        label: "Pending Requests",
+        value: pendingRequests,
+        icon: CalendarCheck,
+      },
+      {
+        label: "Approved",
+        value: ownerStats.approved,
+        icon: CheckCircle2,
+      },
+      {
+        label: "Rejected",
+        value: ownerStats.rejected,
+        icon: XCircle,
+      },
+      {
+        label: "Occupancy",
+        value: `${ownerStats.occupancy}%`,
+        icon: BarChart3,
+      },
+      {
+        label: "Average Rating",
+        value: ownerStats.averageRating,
+        icon: Star,
+      },
+    ],
+    [ownerHomestays.length, ownerStats, pendingRequests]
   );
 
   const handleChange = useCallback(
@@ -354,7 +463,6 @@ export default function OwnerPage() {
         closeForm();
         await fetchHomestays(false);
       } catch (error) {
-        console.error(error);
         setToast({
           message: getApiErrorMessage(error, "Unable to save homestay."),
           type: "error",
@@ -381,7 +489,6 @@ export default function OwnerPage() {
       setDeleteTarget(null);
       await fetchHomestays(false);
     } catch (error) {
-      console.error(error);
       setToast({
         message: getApiErrorMessage(error, "Unable to delete homestay."),
         type: "error",
@@ -413,7 +520,6 @@ export default function OwnerPage() {
 
         await fetchHomestays(false);
       } catch (error) {
-        console.error(error);
         setToast({
           message: getApiErrorMessage(
             error,
@@ -484,6 +590,109 @@ export default function OwnerPage() {
                 </p>
                 <p className="mt-3 text-3xl font-bold text-gray-950 dark:text-white">
                   {pendingRequests}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section className="mb-6">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-2xl font-semibold text-gray-950 dark:text-white">
+                  Quick Stats
+                </h2>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Live performance metrics for your properties and booking pipeline.
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {quickStats.map((item) => {
+                const Icon = item.icon;
+
+                return (
+                  <div
+                    key={item.label}
+                    className="rounded-lg bg-white p-5 shadow-sm dark:bg-gray-900"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {item.label}
+                      </p>
+                      <Icon
+                        size={20}
+                        className="text-green-700 dark:text-green-400"
+                      />
+                    </div>
+                    <p className="mt-3 text-2xl font-bold text-gray-950 dark:text-white">
+                      {item.value}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="mb-6 grid gap-6 lg:grid-cols-[1fr_1fr]">
+            <div className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-900">
+              <h2 className="text-2xl font-semibold text-gray-950 dark:text-white">
+                Recent Reviews
+              </h2>
+              {ownerStats.recentReviews.length ? (
+                <div className="mt-5 space-y-3">
+                  {ownerStats.recentReviews.map((review) => (
+                    <div
+                      key={review.id}
+                      className="rounded-lg border border-gray-200 p-4 dark:border-gray-800"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-medium text-gray-950 dark:text-white">
+                          {review.homestayName}
+                        </p>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-yellow-50 px-3 py-1 text-sm font-medium text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200">
+                          <Star size={14} />
+                          {review.rating}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                        {review.comment || "No written review provided."}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-5 rounded-lg border border-dashed border-gray-300 p-8 text-center text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                  No reviews yet.
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-900">
+              <h2 className="text-2xl font-semibold text-gray-950 dark:text-white">
+                Owner Actions
+              </h2>
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <Button type="button" onClick={openCreateForm}>
+                  <span className="inline-flex items-center gap-2">
+                    <Plus size={17} />
+                    Add Property
+                  </span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fetchHomestays()}
+                  disabled={loading}
+                >
+                  Refresh Data
+                </Button>
+              </div>
+              <div className="mt-5 rounded-lg border border-gray-200 p-4 dark:border-gray-800">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Booking approvals
+                </p>
+                <p className="mt-2 text-gray-700 dark:text-gray-300">
+                  Pending requests can be approved or rejected from the Booking Requests section below.
                 </p>
               </div>
             </div>

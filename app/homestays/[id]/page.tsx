@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Bot,
@@ -104,7 +105,6 @@ export default function HomestayDetailPage() {
         roomId: current.roomId || currentHomestay.rooms[0]?.id || "",
       }));
     } catch (error) {
-      console.error(error);
       setToast({
         message: getApiErrorMessage(error, "Unable to load homestay details."),
         type: "error",
@@ -222,7 +222,6 @@ export default function HomestayDetailPage() {
         setForm(initialBookingForm);
         await fetchDetails();
       } catch (error) {
-        console.error(error);
         setToast({
           message: getApiErrorMessage(error, "Unable to request booking."),
           type: "error",
@@ -257,7 +256,6 @@ export default function HomestayDetailPage() {
       });
       await fetchDetails();
     } catch (error) {
-      console.error(error);
       setToast({
         message: getApiErrorMessage(error, "Unable to cancel booking request."),
         type: "error",
@@ -681,7 +679,7 @@ function Panel({
   children,
 }: {
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <section className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-900">

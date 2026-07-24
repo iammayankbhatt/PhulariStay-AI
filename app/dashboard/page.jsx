@@ -6,9 +6,13 @@ import {
   Bot,
   CalendarCheck,
   Clock3,
+  Heart,
   Home,
+  Plane,
   RefreshCw,
+  Sparkles,
   UserRound,
+  XCircle,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -21,80 +25,105 @@ import { getApiErrorMessage } from "@/lib/api";
 import { cancelBooking, getMyBookings } from "@/services/booking.service";
 import { getHomestays } from "@/services/homestay.service";
 
+const AI_HISTORY_KEY = "phularistay_ai_plan_history";
+
+const getTime = (value) => new Date(value).getTime();
+
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [dashboard, setDashboard] = useState(null);
+  const [homestays, setHomestays] = useState([]);
+  const [bookings, setBookings] = useState([]);
+  const [aiPlans] = useState(() => {
+    if (typeof window === "undefined") return [];
+
+    try {
+      const stored = localStorage.getItem(AI_HISTORY_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
   const [cancellingId, setCancellingId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [toast, setToast] = useState(null);
 
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
     setError("");
 
     try {
-      const [homestays, bookings] = await Promise.all([
+      const [homestayData, bookingData] = await Promise.all([
         getHomestays(),
         getMyBookings(),
       ]);
-      setDashboard({
-        user,
-        homestays,
-        savedTrips: bookings,
-        recentActivity: bookings.slice(0, 5),
-      });
+      setHomestays(homestayData);
+      setBookings(bookingData);
     } catch (error) {
-      console.error(error);
       setError(getApiErrorMessage(error, "Unable to load dashboard data."));
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, []);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      fetchDashboard();
-    }, 0);
+    const timeoutId = window.setTimeout(fetchDashboard, 0);
 
     return () => window.clearTimeout(timeoutId);
   }, [fetchDashboard]);
 
-  const totalHomestays = dashboard?.homestays.length ?? 0;
-  const savedTrips = dashboard?.savedTrips ?? [];
-  const recentActivity = dashboard?.recentActivity ?? [];
+  const categorized = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return {
+      upcoming: bookings.filter(
+        (booking) =>
+          booking.status === "CONFIRMED" &&
+          getTime(booking.checkIn) >= today.getTime()
+      ),
+      past: bookings.filter(
+        (booking) =>
+          booking.status === "CONFIRMED" &&
+          getTime(booking.checkOut) < today.getTime()
+      ),
+      cancelled: bookings.filter((booking) => booking.status === "CANCELLED"),
+      pending: bookings.filter((booking) => booking.status === "PENDING"),
+      rejected: bookings.filter((booking) => booking.status === "REJECTED"),
+    };
+  }, [bookings]);
+
+  const recentActivity = useMemo(() => bookings.slice(0, 5), [bookings]);
+
+  const wishlist = useMemo(
+    () => user?.favoriteDestinations?.filter(Boolean) || [],
+    [user]
+  );
 
   const stats = useMemo(
     () => [
-      {
-        label: "Total Homestays",
-        value: totalHomestays,
-        icon: Home,
-      },
-      {
-        label: "Saved Trips",
-        value: savedTrips.length,
-        icon: CalendarCheck,
-      },
-      {
-        label: "Recent Activity",
-        value: recentActivity.length,
-        icon: Clock3,
-      },
+      { label: "Upcoming Trips", value: categorized.upcoming.length, icon: Plane },
+      { label: "Pending Requests", value: categorized.pending.length, icon: Clock3 },
+      { label: "Cancelled Trips", value: categorized.cancelled.length, icon: XCircle },
+      { label: "Saved AI Plans", value: aiPlans.length, icon: Sparkles },
     ],
-    [recentActivity.length, savedTrips.length, totalHomestays]
+    [aiPlans.length, categorized]
   );
 
   const handleCancelBooking = useCallback(
     async (id) => {
       setCancellingId(id);
-      setError("");
+      setToast(null);
 
       try {
         await cancelBooking(id);
+        setToast({ message: "Booking request cancelled.", type: "success" });
         await fetchDashboard();
       } catch (error) {
-        console.error(error);
-        setError(getApiErrorMessage(error, "Unable to cancel booking request."));
+        setToast({
+          message: getApiErrorMessage(error, "Unable to cancel booking request."),
+          type: "error",
+        });
       } finally {
         setCancellingId("");
       }
@@ -108,6 +137,12 @@ export default function DashboardPage() {
 
       <main className="min-h-screen bg-stone-100 px-4 py-6 transition-colors duration-200 dark:bg-gray-950 md:px-6 md:py-8">
         <div className="mx-auto max-w-7xl">
+          {toast ? (
+            <div className="mb-5">
+              <Toast message={toast.message} type={toast.type} />
+            </div>
+          ) : null}
+
           {loading ? (
             <div className="flex min-h-[60vh] items-center justify-center">
               <Loader size={56} />
@@ -124,154 +159,162 @@ export default function DashboardPage() {
             </section>
           ) : (
             <>
-              <section className="mb-8 grid gap-5 lg:grid-cols-[1.6fr_1fr]">
+              <section className="mb-8 grid gap-5 lg:grid-cols-[1.5fr_1fr]">
                 <div className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-900">
                   <p className="text-sm font-medium uppercase tracking-wide text-green-700 dark:text-green-400">
-                    Dashboard
+                    User Dashboard
                   </p>
                   <h1 className="mt-3 text-3xl font-bold text-gray-950 dark:text-white md:text-4xl">
-                    Welcome back, {dashboard?.user.name}
+                    Welcome back, {user?.name}
                   </h1>
                   <p className="mt-3 max-w-2xl text-gray-600 dark:text-gray-300">
-                    View your account, explore live homestay inventory, and jump into AI trip planning from one place.
+                    Track booking requests, confirmed trips, saved destinations, and AI travel plans from one place.
                   </p>
-                  <Link
-                    href="/ai"
-                    className="mt-6 inline-flex items-center gap-2 rounded-lg bg-green-700 px-5 py-3 font-medium text-white transition hover:bg-green-800"
-                  >
-                    <Bot size={18} />
-                    Open AI Planner
-                  </Link>
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <Link
+                      href="/ai"
+                      className="inline-flex items-center gap-2 rounded-lg bg-green-700 px-5 py-3 font-medium text-white transition hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-950"
+                    >
+                      <Bot size={18} />
+                      Open AI Planner
+                    </Link>
+                    <Link
+                      href="/homestays"
+                      className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-5 py-3 font-medium text-gray-800 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-green-500 dark:border-gray-800 dark:text-gray-100 dark:hover:bg-gray-900"
+                    >
+                      <Home size={18} />
+                      Browse Homestays
+                    </Link>
+                  </div>
                 </div>
 
                 <aside className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-900">
                   <div className="flex items-center gap-4">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300">
-                      <UserRound size={26} />
+                    <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300">
+                      {user?.avatar ? (
+                        <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <UserRound size={28} />
+                      )}
                     </div>
                     <div>
                       <h2 className="text-xl font-semibold text-gray-950 dark:text-white">
-                        {dashboard?.user.name}
+                        {user?.name}
                       </h2>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {dashboard?.user.email}
+                        {user?.email}
                       </p>
                     </div>
                   </div>
-                  <div className="mt-6 rounded-lg border border-gray-200 p-4 dark:border-gray-800">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      User role
-                    </p>
-                    <p className="mt-1 text-lg font-semibold text-gray-950 dark:text-white">
-                      {dashboard?.user.role}
-                    </p>
+                  <div className="mt-6 grid gap-3">
+                    <InfoPill label="Role" value={user?.role || "USER"} />
+                    <InfoPill label="Live Homestays" value={homestays.length} />
                   </div>
                 </aside>
               </section>
 
-              <section className="mb-8 grid gap-4 md:grid-cols-3">
+              <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {stats.map((item) => {
                   const Icon = item.icon;
 
                   return (
-                    <div
-                      key={item.label}
-                      className="rounded-lg bg-white p-5 shadow-sm dark:bg-gray-900"
-                    >
+                    <div key={item.label} className="rounded-lg bg-white p-5 shadow-sm dark:bg-gray-900">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {item.label}
-                        </p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{item.label}</p>
                         <Icon className="text-green-700 dark:text-green-400" size={20} />
                       </div>
-                      <p className="mt-3 text-3xl font-bold text-gray-950 dark:text-white">
-                        {item.value}
-                      </p>
+                      <p className="mt-3 text-3xl font-bold text-gray-950 dark:text-white">{item.value}</p>
                     </div>
                   );
                 })}
               </section>
 
-              <section className="grid gap-6 lg:grid-cols-3">
-                <div className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-900 lg:col-span-2">
-                  <h2 className="text-2xl font-semibold text-gray-950 dark:text-white">
-                    Saved Trips
-                  </h2>
-
-                  {savedTrips.length ? (
-                    <div className="mt-5 space-y-3">
-                      {savedTrips.map((trip) => (
-                        <div
-                          key={trip.id}
-                          className="rounded-lg border border-gray-200 p-4 dark:border-gray-800"
-                        >
-                          <Link
-                            href={`/homestays/${trip.homestayId}`}
-                            className="font-medium hover:text-green-700"
-                          >
-                            {trip.homestay?.name || "Booking request"}
-                          </Link>
-                          <p className="mt-1 text-sm text-gray-500">
-                            {trip.status} · Rs {trip.totalPrice}
-                          </p>
-                          {trip.status === "PENDING" ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="mt-3"
-                              disabled={cancellingId === trip.id}
-                              onClick={() => handleCancelBooking(trip.id)}
-                            >
-                              {cancellingId === trip.id
-                                ? "Cancelling..."
-                                : "Cancel Request"}
-                            </Button>
-                          ) : null}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="mt-5 rounded-lg border border-dashed border-gray-300 p-8 text-center dark:border-gray-700">
-                      <CalendarCheck className="mx-auto text-green-700 dark:text-green-400" size={34} />
-                      <h3 className="mt-4 text-lg font-semibold text-gray-950 dark:text-white">
-                        No saved trips yet
-                      </h3>
-                      <p className="mt-2 text-gray-500 dark:text-gray-400">
-                        Trips you save from the planner will appear here once the backend provides them.
-                      </p>
-                    </div>
-                  )}
+              <section className="grid gap-6 xl:grid-cols-3">
+                <div className="space-y-6 xl:col-span-2">
+                  <BookingPanel
+                    title="Upcoming Trips"
+                    emptyTitle="No upcoming trips"
+                    emptyText="Approved bookings for future dates will appear here."
+                    bookings={categorized.upcoming}
+                  />
+                  <BookingPanel
+                    title="Pending Requests"
+                    emptyTitle="No pending requests"
+                    emptyText="Your booking requests waiting for owner approval will appear here."
+                    bookings={categorized.pending}
+                    cancellingId={cancellingId}
+                    onCancel={handleCancelBooking}
+                  />
+                  <div className="grid gap-6 lg:grid-cols-2">
+                    <BookingPanel
+                      title="Past Trips"
+                      emptyTitle="No past trips"
+                      emptyText="Completed stays will be listed here."
+                      bookings={categorized.past}
+                    />
+                    <BookingPanel
+                      title="Cancelled Trips"
+                      emptyTitle="No cancelled trips"
+                      emptyText="Cancelled booking requests will be listed here."
+                      bookings={categorized.cancelled}
+                    />
+                  </div>
                 </div>
 
-                <div className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-900">
-                  <h2 className="text-2xl font-semibold text-gray-950 dark:text-white">
-                    Recent Activity
-                  </h2>
+                <div className="space-y-6">
+                  <SidePanel title="Wishlist">
+                    {wishlist.length ? (
+                      <div className="flex flex-wrap gap-2">
+                        {wishlist.map((destination) => (
+                          <span key={destination} className="rounded-full bg-green-50 px-3 py-1 text-sm text-green-800 dark:bg-green-950 dark:text-green-300">
+                            {destination}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <EmptySmall icon={Heart} text="No wishlist destinations yet." />
+                    )}
+                  </SidePanel>
 
-                  {recentActivity.length ? (
-                    <div className="mt-5 space-y-3">
-                      {recentActivity.map((activity) => (
-                        <div
-                          key={activity.id}
-                          className="rounded-lg border border-gray-200 p-4 dark:border-gray-800"
-                        >
-                          <p className="font-medium">
-                            {activity.homestay?.name || "Booking activity"}
-                          </p>
-                          <p className="mt-1 text-sm text-gray-500">
-                            {activity.status}
-                          </p>
-                        </div>
-                      ))}
+                  <SidePanel title="Saved AI Plans">
+                    {aiPlans.length ? (
+                      <div className="space-y-3">
+                        {aiPlans.slice(0, 4).map((plan, index) => (
+                          <div key={plan.id || index} className="rounded-lg border border-gray-200 p-3 dark:border-gray-800">
+                            <p className="font-medium text-gray-950 dark:text-white">
+                              {plan.title || plan.from || `AI Plan ${index + 1}`}
+                            </p>
+                            <p className="mt-1 line-clamp-2 text-sm text-gray-500 dark:text-gray-400">
+                              {plan.destination || plan.response || "Saved route plan"}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <EmptySmall icon={Sparkles} text="No saved AI plans yet." />
+                    )}
+                  </SidePanel>
+
+                  <SidePanel title="Recent Activity">
+                    {recentActivity.length ? (
+                      <div className="space-y-3">
+                        {recentActivity.map((activity) => (
+                          <ActivityItem key={activity.id} booking={activity} />
+                        ))}
+                      </div>
+                    ) : (
+                      <EmptySmall icon={Clock3} text="No recent activity found." />
+                    )}
+                  </SidePanel>
+
+                  <SidePanel title="Booking Statistics">
+                    <div className="grid grid-cols-2 gap-3">
+                      <InfoPill label="Total" value={bookings.length} />
+                      <InfoPill label="Approved" value={categorized.upcoming.length + categorized.past.length} />
+                      <InfoPill label="Rejected" value={categorized.rejected.length} />
+                      <InfoPill label="Cancelled" value={categorized.cancelled.length} />
                     </div>
-                  ) : (
-                    <div className="mt-5 rounded-lg border border-dashed border-gray-300 p-6 text-center dark:border-gray-700">
-                      <Clock3 className="mx-auto text-green-700 dark:text-green-400" size={30} />
-                      <p className="mt-3 text-gray-500 dark:text-gray-400">
-                        No recent activity found.
-                      </p>
-                    </div>
-                  )}
+                  </SidePanel>
                 </div>
               </section>
             </>
@@ -281,5 +324,105 @@ export default function DashboardPage() {
 
       <Footer />
     </ProtectedRoute>
+  );
+}
+
+function BookingPanel({
+  title,
+  emptyTitle,
+  emptyText,
+  bookings,
+  cancellingId = "",
+  onCancel,
+}) {
+  return (
+    <section className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-900">
+      <h2 className="text-2xl font-semibold text-gray-950 dark:text-white">{title}</h2>
+
+      {bookings.length ? (
+        <div className="mt-5 space-y-3">
+          {bookings.map((booking) => (
+            <div key={booking.id} className="rounded-lg border border-gray-200 p-4 dark:border-gray-800">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <Link href={`/homestays/${booking.homestayId}`} className="font-semibold text-gray-950 transition hover:text-green-700 dark:text-white">
+                    {booking.homestay?.name || "Booking request"}
+                  </Link>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    {new Date(booking.checkIn).toLocaleDateString()} to {new Date(booking.checkOut).toLocaleDateString()}
+                  </p>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    {booking.room?.roomType || "Room"} {" - "} {booking.guests} guest(s)
+                  </p>
+                </div>
+                <div className="sm:text-right">
+                  <span className="rounded-full bg-green-50 px-3 py-1 text-sm font-medium text-green-800 dark:bg-green-950 dark:text-green-300">
+                    {booking.status}
+                  </span>
+                  <p className="mt-2 font-semibold text-green-700 dark:text-green-400">Rs {booking.totalPrice}</p>
+                </div>
+              </div>
+              {onCancel && booking.status === "PENDING" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-4"
+                  disabled={cancellingId === booking.id}
+                  onClick={() => onCancel(booking.id)}
+                >
+                  {cancellingId === booking.id ? "Cancelling..." : "Cancel Request"}
+                </Button>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-5 rounded-lg border border-dashed border-gray-300 p-8 text-center dark:border-gray-700">
+          <CalendarCheck className="mx-auto text-green-700 dark:text-green-400" size={34} />
+          <h3 className="mt-4 text-lg font-semibold text-gray-950 dark:text-white">{emptyTitle}</h3>
+          <p className="mt-2 text-gray-500 dark:text-gray-400">{emptyText}</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function SidePanel({ title, children }) {
+  return (
+    <section className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-900">
+      <h2 className="text-xl font-semibold text-gray-950 dark:text-white">{title}</h2>
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+
+function InfoPill({ label, value }) {
+  return (
+    <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-800">
+      <p className="text-xs uppercase text-gray-500 dark:text-gray-400">{label}</p>
+      <p className="mt-1 font-semibold text-gray-950 dark:text-white">{value}</p>
+    </div>
+  );
+}
+
+function ActivityItem({ booking }) {
+  return (
+    <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-800">
+      <p className="font-medium text-gray-950 dark:text-white">
+        {booking.homestay?.name || "Booking activity"}
+      </p>
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        {booking.status} {" - "} Rs {booking.totalPrice}
+      </p>
+    </div>
+  );
+}
+
+function EmptySmall({ icon: Icon, text }) {
+  return (
+    <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center dark:border-gray-700">
+      <Icon className="mx-auto text-green-700 dark:text-green-400" size={28} />
+      <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">{text}</p>
+    </div>
   );
 }

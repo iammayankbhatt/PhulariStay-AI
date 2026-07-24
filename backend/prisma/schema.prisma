@@ -40,6 +40,22 @@ model User {
 
   profileImage String?
 
+  coverImage String?
+
+  address String?
+
+  emergencyContact String?
+
+  gender String?
+
+  dob DateTime?
+
+  bio String?
+
+  preferredTravelStyle String?
+
+  favoriteDestinations String[] @default([])
+
   role UserRole @default(USER)
 
   createdAt DateTime @default(now())

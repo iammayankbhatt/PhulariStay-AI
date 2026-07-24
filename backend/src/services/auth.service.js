@@ -87,6 +87,29 @@ export async function getCurrentUser(userId) {
   return toSafeUser(user);
 }
 
+export async function updateCurrentUser(userId, data) {
+  const user = await prisma.user.update({
+    where: {
+      id: userId,
+    },
+    data: {
+      fullName: data.name,
+      phone: data.phone || null,
+      profileImage: data.avatar || null,
+      coverImage: data.coverImage || null,
+      address: data.address || null,
+      emergencyContact: data.emergencyContact || null,
+      gender: data.gender || null,
+      dob: data.dob ? new Date(data.dob) : null,
+      bio: data.bio || null,
+      preferredTravelStyle: data.preferredTravelStyle || null,
+      favoriteDestinations: data.favoriteDestinations || [],
+    },
+  });
+
+  return toSafeUser(user);
+}
+
 export async function findOrCreateGoogleUser(profile) {
   const email = profile.emails?.[0]?.value?.toLowerCase();
 

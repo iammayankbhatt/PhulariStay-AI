@@ -235,37 +235,71 @@ export async function updateBookingRequestStatus(user, id, status) {
     throw error;
   }
 
-  if (status === "CONFIRMED") {
-    const overlappingBookings = await countOverlappingBookings({
-      roomId: booking.roomId,
-      checkIn: booking.checkIn,
-      checkOut: booking.checkOut,
-    });
-
-    if (overlappingBookings > booking.room.totalRooms) {
-      const error = new Error("This booking would exceed available rooms");
-      error.statusCode = 409;
-      throw error;
-    }
-  }
-
-  return prisma.booking.update({
-    where: {
-      id,
-    },
-    data: {
-      status,
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          fullName: true,
-          email: true,
+  return prisma.$transaction(async (tx) => {
+    if (status === "CONFIRMED") {
+      const room = await tx.room.findUnique({
+        where: {
+          id: booking.roomId,
         },
+      });
+
+      if (!room || room.availableRooms < 1) {
+        const error = new Error("This room type is no longer available");
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const overlappingBookings = await tx.booking.count({
+        where: {
+          roomId: booking.roomId,
+          status: {
+            in: activeStatuses,
+          },
+          checkIn: {
+            lt: booking.checkOut,
+          },
+          checkOut: {
+            gt: booking.checkIn,
+          },
+        },
+      });
+
+      if (overlappingBookings > room.totalRooms) {
+        const error = new Error("This booking would exceed available rooms");
+        error.statusCode = 409;
+        throw error;
+      }
+
+      await tx.room.update({
+        where: {
+          id: booking.roomId,
+        },
+        data: {
+          availableRooms: {
+            decrement: 1,
+          },
+        },
+      });
+    }
+
+    return tx.booking.update({
+      where: {
+        id,
       },
-      homestay: true,
-      room: true,
-    },
+      data: {
+        status,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+          },
+        },
+        homestay: true,
+        room: true,
+      },
+    });
   });
 }

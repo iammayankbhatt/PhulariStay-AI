@@ -9,6 +9,15 @@ export type AuthUser = {
   email: string;
   role: UserRole;
   avatar?: string | null;
+  coverImage?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  emergencyContact?: string | null;
+  gender?: string | null;
+  dob?: string | null;
+  bio?: string | null;
+  preferredTravelStyle?: string | null;
+  favoriteDestinations?: string[];
   createdAt?: string;
   updatedAt?: string;
 };
@@ -89,6 +98,16 @@ export async function logout(): Promise<void> {
 export async function getCurrentUser(): Promise<AuthUser> {
   const response = await api.get<{ success: boolean; user: AuthUser }>(
     "/auth/me"
+  );
+  return response.data.user;
+}
+
+export async function updateCurrentUser(
+  payload: Partial<AuthUser>
+): Promise<AuthUser> {
+  const response = await api.put<{ success: boolean; user: AuthUser }>(
+    "/auth/me",
+    payload
   );
   return response.data.user;
 }
