@@ -44,12 +44,12 @@ export default function HomestayCard({ homestay }: { homestay: Homestay }) {
   );
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-white shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:bg-gray-900">
+    <div className="group overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-gray-100 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-green-100 dark:bg-gray-900 dark:ring-gray-800 dark:hover:ring-green-900">
       <div className="relative">
         <img
           src={homestay.images?.[0] || homestay.image || "/window.svg"}
           alt={homestay.name}
-          className="h-60 w-full object-cover"
+          className="h-56 w-full object-cover transition duration-300 group-hover:scale-105 sm:h-60"
         />
 
         <button className="absolute right-3 top-3 rounded-full bg-white/80 p-2 backdrop-blur hover:bg-white dark:bg-black/50">
@@ -64,9 +64,9 @@ export default function HomestayCard({ homestay }: { homestay: Homestay }) {
         )}
       </div>
 
-      <div className="space-y-3 p-5">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold">{homestay.name}</h3>
+      <div className="space-y-4 p-5">
+        <div className="flex items-start justify-between gap-3">
+          <h3 className="line-clamp-2 text-lg font-bold leading-snug">{homestay.name}</h3>
 
           <div className="flex items-center gap-1">
             <Star className="fill-yellow-400 text-yellow-400" size={18} />
