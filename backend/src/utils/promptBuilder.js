@@ -50,6 +50,7 @@ export const formatAvailableHomestays = (homestays) => {
 };
 
 export const buildTravelPlanPrompt = ({
+  from,
   destination,
   days,
   budget,
@@ -60,6 +61,7 @@ export const buildTravelPlanPrompt = ({
 Create a practical AI Travel Planner itinerary for Uttarakhand.
 
 Traveler preferences:
+- Starting from: ${from}
 - Destination: ${destination}
 - Trip duration: ${days} day${Number(days) === 1 ? "" : "s"}
 - Total budget: INR ${budget}
@@ -78,8 +80,10 @@ Homestay recommendation rules:
 Return a beautiful markdown travel plan with these exact sections:
 
 ## Short Overview
+Mention the route from ${from} to ${destination}.
 ## Day-wise Itinerary
 Use Day 1, Day 2, etc. with Morning, Afternoon, and Evening.
+Include practical travel movement from the starting place where relevant.
 ## Estimated Budget Breakdown
 Use a markdown table with Accommodation, Food, Transport, and Activities.
 ## Suggested Local Foods

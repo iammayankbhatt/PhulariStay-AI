@@ -3,14 +3,15 @@ import * as service from "../services/ai.service.js";
 const travelStyles = ["Solo", "Family", "Friends", "Couple", "Adventure"];
 
 const validateTravelPlanInput = ({
+  from,
   destination,
   days,
   budget,
   travelStyle,
   interests,
 }) => {
-  if (!destination || !days || !budget || !travelStyle || !interests) {
-    return "Destination, days, budget, travel style, and interests are required.";
+  if (!from || !destination || !days || !budget || !travelStyle || !interests) {
+    return "From, destination, days, budget, travel style, and interests are required.";
   }
 
   const numericDays = Number(days);
@@ -43,6 +44,7 @@ export const createTravelPlan = async (req, res) => {
 
   try {
     const plan = await service.generateTravelPlan({
+      from: req.body.from.trim(),
       destination: req.body.destination.trim(),
       days: Number(req.body.days),
       budget: Number(req.body.budget),

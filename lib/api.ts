@@ -1,7 +1,17 @@
 import axios from "axios";
 
+function resolveApiBaseUrl() {
+  const configuredUrl =
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  const normalizedUrl = configuredUrl.replace(/\/+$/, "");
+
+  return normalizedUrl.endsWith("/api")
+    ? normalizedUrl
+    : `${normalizedUrl}/api`;
+}
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  baseURL: resolveApiBaseUrl(),
   timeout: 10000,
 });
 
@@ -46,7 +56,7 @@ export function getApiErrorMessage(
     }
 
     if (error.code === "ECONNABORTED") {
-      return "The request timed out. Please try again.";
+      return "The request took too long to finish. Please try again.";
     }
   }
 
