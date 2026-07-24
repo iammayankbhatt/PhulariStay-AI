@@ -1,7 +1,7 @@
 "use client";
 
-import { FormEvent, Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -9,35 +9,15 @@ import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import { useAuth } from "@/components/AuthContext";
-import { AuthUser, getAuthErrorMessage } from "@/services/auth.service";
+import { getAuthErrorMessage } from "@/services/auth.service";
 
 function LoginContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { login, setGoogleSession, isAuthenticated } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    const token = searchParams.get("token");
-
-    if (!token) {
-      return;
-    }
-
-    const user: AuthUser = {
-      id: searchParams.get("id") || "",
-      name: searchParams.get("name") || "",
-      email: searchParams.get("email") || "",
-      role: (searchParams.get("role") as AuthUser["role"]) || "USER",
-      avatar: searchParams.get("avatar"),
-    };
-
-    setGoogleSession(token, user);
-    router.replace("/dashboard");
-  }, [router, searchParams, setGoogleSession]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -134,9 +114,5 @@ function LoginContent() {
 }
 
 export default function LoginPage() {
-  return (
-    <Suspense>
-      <LoginContent />
-    </Suspense>
-  );
+  return <LoginContent />;
 }

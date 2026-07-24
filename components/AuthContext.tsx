@@ -13,6 +13,7 @@ import {
   AuthUser,
   LoginPayload,
   RegisterPayload,
+  consumeGoogleOAuthSession,
   getCurrentUser,
   login as loginRequest,
   logout as logoutRequest,
@@ -67,6 +68,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const storedToken = localStorage.getItem(TOKEN_KEY);
 
       if (!storedToken) {
+        try {
+          const googleSession = await consumeGoogleOAuthSession();
+          persistSession(googleSession.token, googleSession.user);
+        } catch {
+          clearSession();
+        }
         setLoading(false);
         return;
       }

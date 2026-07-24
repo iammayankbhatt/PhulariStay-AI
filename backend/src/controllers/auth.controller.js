@@ -1,7 +1,17 @@
 import { env } from "../config/env.js";
 import * as authService from "../services/auth.service.js";
-import { signToken } from "../utils/jwt.js";
+import { signToken, verifyJwt } from "../utils/jwt.js";
 import { toSafeUser } from "../utils/userDto.js";
+
+const GOOGLE_OAUTH_COOKIE = "phularistay_google_oauth";
+
+const googleCookieOptions = {
+  httpOnly: true,
+  secure: env.NODE_ENV === "production",
+  sameSite: "lax",
+  path: "/api/auth/google/session",
+  maxAge: 2 * 60 * 1000,
+};
 
 export const register = async (req, res, next) => {
   try {
@@ -66,19 +76,42 @@ export const updateMe = async (req, res, next) => {
 
 export const googleCallback = (req, res) => {
   const token = signToken(req.user);
-  const params = new URLSearchParams({
-    token,
-    id: req.user.id,
-    name: req.user.fullName,
-    email: req.user.email,
-    role: req.user.role,
-  });
 
-  if (req.user.profileImage) {
-    params.set("avatar", req.user.profileImage);
+  res.cookie(GOOGLE_OAUTH_COOKIE, token, googleCookieOptions);
+  res.redirect(`${env.CLIENT_URL}/dashboard`);
+};
+
+export const googleSession = async (req, res, next) => {
+  try {
+    const token = req.cookies?.[GOOGLE_OAUTH_COOKIE];
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "No Google OAuth session found",
+      });
+    }
+
+    const payload = verifyJwt(token);
+    const user = await authService.getCurrentUser(payload.id || payload.sub);
+
+    res.clearCookie(GOOGLE_OAUTH_COOKIE, {
+      ...googleCookieOptions,
+      maxAge: undefined,
+    });
+
+    res.status(200).json({
+      success: true,
+      token,
+      user,
+    });
+  } catch (error) {
+    res.clearCookie(GOOGLE_OAUTH_COOKIE, {
+      ...googleCookieOptions,
+      maxAge: undefined,
+    });
+    next(error);
   }
-
-  res.redirect(`${env.CLIENT_URL}/login?${params.toString()}`);
 };
 
 export const googleJsonCallback = (req, res) => {

@@ -102,6 +102,11 @@ export async function getCurrentUser(): Promise<AuthUser> {
   return response.data.user;
 }
 
+export async function consumeGoogleOAuthSession(): Promise<AuthResponse> {
+  const response = await api.get<AuthResponse>("/auth/google/session");
+  return response.data;
+}
+
 export async function updateCurrentUser(
   payload: Partial<AuthUser>
 ): Promise<AuthUser> {

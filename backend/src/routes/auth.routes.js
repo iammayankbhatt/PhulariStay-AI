@@ -43,6 +43,7 @@ router.post(
 router.post("/logout", verifyToken, controller.logout);
 router.get("/me", verifyToken, controller.me);
 router.put("/me", verifyToken, controller.updateMe);
+router.get("/google/session", controller.googleSession);
 
 router.get(
   "/google",

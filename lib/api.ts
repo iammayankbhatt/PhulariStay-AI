@@ -13,6 +13,7 @@ function resolveApiBaseUrl() {
 const api = axios.create({
   baseURL: resolveApiBaseUrl(),
   timeout: 10000,
+  withCredentials: true,
 });
 
 api.interceptors.request.use((config) => {
