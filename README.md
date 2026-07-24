@@ -28,16 +28,16 @@ npx prisma generate
 npm run dev
 ```
 
-Frontend runs at:
+Frontend runs locally at:
 
 ```text
-http://localhost:3000
+<frontend-dev-url>
 ```
 
-Backend runs at:
+Backend runs locally at:
 
 ```text
-http://localhost:5000
+<backend-dev-url>
 ```
 
 ## Environment Variables
@@ -45,7 +45,7 @@ http://localhost:5000
 Frontend `.env.local`:
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:5000/api
+NEXT_PUBLIC_API_URL=<backend-api-url>/api
 ```
 
 Backend `backend/.env`:
@@ -53,13 +53,15 @@ Backend `backend/.env`:
 ```env
 DATABASE_URL=
 PORT=5000
-CLIENT_URL=http://localhost:3000
+CLIENT_URL=<frontend-url>
+CLIENT_URLS=<frontend-url>,<optional-preview-url>
+PUBLIC_API_URL=<backend-api-url>
 NODE_ENV=development
 JWT_SECRET=
 JWT_EXPIRES_IN=7d
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
-GOOGLE_CALLBACK_URL=http://localhost:5000/api/auth/google/callback
+GOOGLE_CALLBACK_URL=<backend-api-url>/api/auth/google/callback
 GEMINI_API_KEY=
 ```
 
@@ -214,6 +216,56 @@ npm run build
 ```
 
 Backend health should be checked with the backend server running and environment variables configured.
+
+## Deployment
+
+### Vercel Frontend
+
+Set the frontend environment variable:
+
+```env
+NEXT_PUBLIC_API_URL=<render-backend-url>/api
+```
+
+Build command:
+
+```bash
+npm run build
+```
+
+The frontend expects the backend URL to come from `NEXT_PUBLIC_API_URL`; no local backend URL is required in production.
+
+### Render Backend
+
+Set the backend environment variables:
+
+```env
+DATABASE_URL=<postgresql-connection-string>
+CLIENT_URL=<vercel-frontend-url>
+CLIENT_URLS=<vercel-frontend-url>,<optional-vercel-preview-url>
+PUBLIC_API_URL=<render-backend-url>
+NODE_ENV=production
+JWT_SECRET=<strong-secret>
+JWT_EXPIRES_IN=7d
+GOOGLE_CLIENT_ID=<google-client-id>
+GOOGLE_CLIENT_SECRET=<google-client-secret>
+GOOGLE_CALLBACK_URL=<render-backend-url>/api/auth/google/callback
+GEMINI_API_KEY=<gemini-api-key>
+```
+
+Build command:
+
+```bash
+npm install && npx prisma generate
+```
+
+Start command:
+
+```bash
+cd backend && npm start
+```
+
+Run pending SQL migrations before deployment or through a trusted database console if Prisma migrate is unavailable in the hosted environment.
 
 ## Database Schema
 

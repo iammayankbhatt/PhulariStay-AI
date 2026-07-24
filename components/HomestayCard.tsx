@@ -25,7 +25,15 @@ interface Homestay {
   reviews: Review[];
 }
 
-export default function HomestayCard({ homestay }: { homestay: Homestay }) {
+export default function HomestayCard({
+  homestay,
+  isWishlisted = false,
+  onToggleWishlist,
+}: {
+  homestay: Homestay;
+  isWishlisted?: boolean;
+  onToggleWishlist?: (homestayId: string) => void;
+}) {
   const averageRating =
     homestay.reviews.length > 0
       ? (
@@ -45,20 +53,17 @@ export default function HomestayCard({ homestay }: { homestay: Homestay }) {
   );
 
   return (
-    <Link
-      href={`/homestays/${homestay.id}`}
-      className="group block overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-gray-100 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-green-100 focus:outline-none focus:ring-2 focus:ring-green-600 dark:bg-gray-900 dark:ring-gray-800 dark:hover:ring-green-900"
-    >
+    <article className="group relative overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-gray-100 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-green-100 dark:bg-gray-900 dark:ring-gray-800 dark:hover:ring-green-900">
+      <Link
+        href={`/homestays/${homestay.id}`}
+        className="block focus:outline-none focus:ring-2 focus:ring-green-600"
+      >
       <div className="relative overflow-hidden">
         <img
           src={homestay.images?.[0] || homestay.image || "/window.svg"}
           alt={homestay.name}
           className="h-56 w-full object-cover transition duration-300 group-hover:scale-105 sm:h-60"
         />
-
-        <span className="absolute right-3 top-3 rounded-full bg-white/80 p-2 backdrop-blur dark:bg-black/50">
-          <Heart size={20} />
-        </span>
 
         {homestay.isVerified && (
           <span className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-green-600 px-3 py-1 text-xs font-medium text-white">
@@ -103,6 +108,24 @@ export default function HomestayCard({ homestay }: { homestay: Homestay }) {
           </span>
         </div>
       </div>
-    </Link>
+      </Link>
+      {onToggleWishlist ? (
+        <button
+          type="button"
+          onClick={() => onToggleWishlist(homestay.id)}
+          className="absolute right-3 top-3 rounded-full bg-white/90 p-2 text-red-600 shadow-sm backdrop-blur transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-black/60"
+          aria-label={
+            isWishlisted
+              ? `Remove ${homestay.name} from wishlist`
+              : `Save ${homestay.name} to wishlist`
+          }
+        >
+          <Heart
+            size={20}
+            className={isWishlisted ? "fill-red-500 text-red-500" : ""}
+          />
+        </button>
+      ) : null}
+    </article>
   );
 }

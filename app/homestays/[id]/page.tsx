@@ -7,6 +7,8 @@ import {
   Bot,
   CalendarDays,
   CloudSun,
+  Download,
+  Heart,
   MapPin,
   Navigation,
   ShieldCheck,
@@ -28,6 +30,17 @@ import {
   getMyBookings,
 } from "@/services/booking.service";
 import { getHomestay, getHomestays } from "@/services/homestay.service";
+import {
+  addToWishlist,
+  getWishlist,
+  removeFromWishlist,
+} from "@/services/favorite.service";
+import {
+  createReview,
+  deleteReview,
+  markReviewHelpful,
+  updateReview,
+} from "@/services/review.service";
 import { Homestay } from "@/types/homestay";
 
 type BookingForm = {
@@ -45,6 +58,7 @@ const initialBookingForm: BookingForm = {
 };
 
 const activeStatuses = ["PENDING", "CONFIRMED"];
+const todayValue = () => new Date().toISOString().slice(0, 10);
 
 const getNights = (checkIn: string, checkOut: string) => {
   if (!checkIn || !checkOut) return 0;
@@ -61,15 +75,27 @@ const getNights = (checkIn: string, checkOut: string) => {
 export default function HomestayDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [homestay, setHomestay] = useState<Homestay | null>(null);
   const [existingBooking, setExistingBooking] = useState<Booking | null>(null);
   const [similarHomestays, setSimilarHomestays] = useState<Homestay[]>([]);
   const [form, setForm] = useState<BookingForm>(initialBookingForm);
+  const [reviewForm, setReviewForm] = useState({
+    rating: "5",
+    comment: "",
+    images: "",
+    visitDate: todayValue(),
+  });
+  const [isWishlisted, setIsWishlisted] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
+  const [deletingReviewId, setDeletingReviewId] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [paymentStage, setPaymentStage] = useState<"summary" | "processing" | "done">("summary");
+  const [receipt, setReceipt] = useState<Booking | null>(null);
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error" | "warning";
@@ -80,13 +106,17 @@ export default function HomestayDetailPage() {
     setToast(null);
 
     try {
-      const [currentHomestay, allHomestays, bookings] = await Promise.all([
+      const [currentHomestay, allHomestays, bookings, favorites] = await Promise.all([
         getHomestay(params.id),
         getHomestays(),
         isAuthenticated ? getMyBookings() : Promise.resolve([]),
+        isAuthenticated ? getWishlist() : Promise.resolve([]),
       ]);
 
       setHomestay(currentHomestay);
+      setIsWishlisted(
+        favorites.some((favorite) => favorite.homestayId === currentHomestay.id)
+      );
       setExistingBooking(
         bookings.find((booking) => booking.homestayId === currentHomestay.id) ||
           null
@@ -130,18 +160,25 @@ export default function HomestayDetailPage() {
   const roomAvailability = useMemo(() => {
     if (!selectedRoom) return { booked: 0, available: 0 };
 
+    const selectedDateKey = form.checkIn || todayValue();
+    const override = selectedRoom.availabilityOverrides?.find(
+      (item) => item.date.slice(0, 10) === selectedDateKey
+    );
     const booked = selectedRoom.bookings?.filter((booking) =>
-      activeStatuses.includes(booking.status)
+      activeStatuses.includes(booking.status) &&
+      new Date(booking.checkIn) <= new Date(selectedDateKey) &&
+      new Date(booking.checkOut) > new Date(selectedDateKey)
     ).length ?? 0;
+    const bookableRooms =
+      override?.availableRooms ??
+      selectedRoom.totalRooms ??
+      selectedRoom.availableRooms;
 
     return {
       booked,
-      available:
-        selectedRoom.bookings && selectedRoom.totalRooms !== undefined
-          ? Math.max(selectedRoom.totalRooms - booked, 0)
-          : selectedRoom.availableRooms,
+      available: Math.max(bookableRooms - booked, 0),
     };
-  }, [selectedRoom]);
+  }, [form.checkIn, selectedRoom]);
 
   const averageRating = useMemo(() => {
     if (!homestay?.reviews.length) return "New";
@@ -161,6 +198,49 @@ export default function HomestayDetailPage() {
     () => nights * (selectedRoom?.price ?? homestay?.pricePerNight ?? 0),
     [homestay?.pricePerNight, nights, selectedRoom?.price]
   );
+
+  const hasReviewed = useMemo(
+    () => homestay?.reviews.some((review) => review.user?.id === user?.id) || false,
+    [homestay?.reviews, user?.id]
+  );
+
+  const calendarDays = useMemo(() => {
+    if (!selectedRoom) return [];
+    const days = [];
+
+    for (let index = 0; index < 21; index += 1) {
+      const date = new Date();
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() + index);
+      const dateKey = date.toISOString().slice(0, 10);
+      const override = selectedRoom.availabilityOverrides?.find(
+        (item) => item.date.slice(0, 10) === dateKey
+      );
+      const overlapping =
+        selectedRoom.bookings?.filter((booking) => {
+          const checkIn = new Date(booking.checkIn);
+          const checkOut = new Date(booking.checkOut);
+          return checkIn <= date && checkOut > date && activeStatuses.includes(booking.status);
+        }).length ?? 0;
+      const total = selectedRoom.totalRooms ?? selectedRoom.availableRooms ?? 0;
+      const bookableRooms = override?.availableRooms ?? total;
+      const available = Math.max(bookableRooms - overlapping, 0);
+
+      days.push({
+        date,
+        label: date.toLocaleDateString(undefined, { day: "2-digit", month: "short" }),
+        available,
+        status:
+          available === 0
+            ? "Unavailable"
+            : overlapping === 0
+              ? "Available"
+              : "Partially Available",
+      });
+    }
+
+    return days;
+  }, [selectedRoom]);
 
   const handleBookingSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -205,6 +285,9 @@ export default function HomestayDetailPage() {
       setToast(null);
 
       try {
+        setPaymentStage("processing");
+        await new Promise((resolve) => window.setTimeout(resolve, 1200));
+
         const booking = await createBooking({
           homestayId: homestay.id,
           roomId: form.roomId,
@@ -214,11 +297,12 @@ export default function HomestayDetailPage() {
         });
 
         setExistingBooking(booking);
+        setReceipt(booking);
+        setPaymentStage("done");
         setToast({
-          message: "Booking request sent. Status is pending until confirmed.",
+          message: "Booking Pending: request submitted. Owner approval pending.",
           type: "success",
         });
-        setBookingOpen(false);
         setForm(initialBookingForm);
         await fetchDetails();
       } catch (error) {
@@ -264,6 +348,159 @@ export default function HomestayDetailPage() {
       setCancelling(false);
     }
   }, [existingBooking, fetchDetails]);
+
+  const handleToggleWishlist = useCallback(async () => {
+    if (!homestay) return;
+
+    if (!isAuthenticated) {
+      setToast({ message: "Please log in to save homestays.", type: "warning" });
+      router.push("/login");
+      return;
+    }
+
+    try {
+      if (isWishlisted) {
+        await removeFromWishlist(homestay.id);
+        setIsWishlisted(false);
+        setToast({ message: "Removed from wishlist.", type: "success" });
+      } else {
+        await addToWishlist(homestay.id);
+        setIsWishlisted(true);
+        setToast({ message: "Saved to wishlist.", type: "success" });
+      }
+    } catch (error) {
+      setToast({
+        message: getApiErrorMessage(error, "Unable to update wishlist."),
+        type: "error",
+      });
+    }
+  }, [homestay, isAuthenticated, isWishlisted, router]);
+
+  const handleReviewSubmit = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (!homestay) return;
+
+      if (!isAuthenticated) {
+        setToast({
+          message: "Please log in to write a review.",
+          type: "warning",
+        });
+        router.push("/login");
+        return;
+      }
+
+      setReviewSubmitting(true);
+      try {
+        const payload = {
+          homestayId: homestay.id,
+          rating: Number(reviewForm.rating),
+          comment: reviewForm.comment.trim(),
+          images: reviewForm.images
+            .split(",")
+            .map((image) => image.trim())
+            .filter(Boolean),
+          visitDate: reviewForm.visitDate,
+        };
+        if (editingReviewId) {
+          await updateReview(editingReviewId, payload);
+        } else {
+          await createReview(payload);
+        }
+        setToast({
+          message: editingReviewId ? "Review updated." : "Review submitted.",
+          type: "success",
+        });
+        setEditingReviewId(null);
+        setReviewForm({
+          rating: "5",
+          comment: "",
+          images: "",
+          visitDate: todayValue(),
+        });
+        await fetchDetails();
+      } catch (error) {
+        setToast({
+          message: getApiErrorMessage(error, "Unable to submit review."),
+          type: "error",
+        });
+      } finally {
+        setReviewSubmitting(false);
+      }
+    },
+    [editingReviewId, fetchDetails, homestay, isAuthenticated, reviewForm, router]
+  );
+
+  const startEditReview = useCallback((review: Homestay["reviews"][number]) => {
+    setEditingReviewId(review.id);
+    setReviewForm({
+      rating: String(review.rating),
+      comment: review.comment || "",
+      images: review.images?.join(", ") || "",
+      visitDate: review.visitDate?.slice(0, 10) || todayValue(),
+    });
+  }, []);
+
+  const handleDeleteReview = useCallback(
+    async (reviewId: string) => {
+      setDeletingReviewId(reviewId);
+      try {
+        await deleteReview(reviewId);
+        setToast({ message: "Review deleted.", type: "success" });
+        if (editingReviewId === reviewId) {
+          setEditingReviewId(null);
+        }
+        await fetchDetails();
+      } catch (error) {
+        setToast({
+          message: getApiErrorMessage(error, "Unable to delete review."),
+          type: "error",
+        });
+      } finally {
+        setDeletingReviewId("");
+      }
+    },
+    [editingReviewId, fetchDetails]
+  );
+
+  const handleHelpful = useCallback(
+    async (reviewId: string) => {
+      try {
+        await markReviewHelpful(reviewId);
+        setToast({ message: "Marked as helpful.", type: "success" });
+        await fetchDetails();
+      } catch (error) {
+        setToast({
+          message: getApiErrorMessage(error, "Unable to update review."),
+          type: "error",
+        });
+      }
+    },
+    [fetchDetails]
+  );
+
+  const handleDownloadReceipt = useCallback(() => {
+    if (!receipt || !homestay) return;
+
+    const content = [
+      "PhulariStay AI Booking Receipt",
+      `Receipt ID: ${receipt.id}`,
+      `Homestay: ${homestay.name}`,
+      `Room: ${selectedRoom?.roomType || "Room"}`,
+      `Check-in: ${new Date(receipt.checkIn).toLocaleDateString()}`,
+      `Check-out: ${new Date(receipt.checkOut).toLocaleDateString()}`,
+      `Guests: ${receipt.guests}`,
+      `Total: Rs ${receipt.totalPrice}`,
+      "Status: Owner Approval Pending",
+    ].join("\n");
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `phularistay-receipt-${receipt.id}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }, [homestay, receipt, selectedRoom?.roomType]);
 
   if (loading) {
     return (
@@ -353,6 +590,17 @@ export default function HomestayDetailPage() {
                 <p className="mt-5 leading-7 text-gray-700 dark:text-gray-200">
                   {homestay.description}
                 </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-5"
+                  onClick={handleToggleWishlist}
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <Heart className={isWishlisted ? "fill-red-500 text-red-500" : ""} size={18} />
+                    {isWishlisted ? "Remove from Wishlist" : "Save to Wishlist"}
+                  </span>
+                </Button>
               </section>
 
               <InfoGrid homestay={homestay} />
@@ -424,6 +672,54 @@ export default function HomestayDetailPage() {
 
               <section className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-900">
                 <h2 className="text-2xl font-semibold">Reviews</h2>
+                {isAuthenticated && (!hasReviewed || editingReviewId) ? (
+                  <form className="mt-5 rounded-lg border border-gray-200 p-4 dark:border-gray-800" onSubmit={handleReviewSubmit}>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <h3 className="font-semibold">
+                        {editingReviewId ? "Edit review" : "Write a review"}
+                      </h3>
+                      {editingReviewId ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingReviewId(null);
+                            setReviewForm({
+                              rating: "5",
+                              comment: "",
+                              images: "",
+                              visitDate: todayValue(),
+                            });
+                          }}
+                          className="text-sm font-medium text-gray-600 hover:text-green-700 dark:text-gray-300"
+                        >
+                          Cancel edit
+                        </button>
+                      ) : null}
+                    </div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <Field label="Rating" type="number" min="1" value={reviewForm.rating} onChange={(value) => setReviewForm((current) => ({ ...current, rating: value }))} />
+                      <Field label="Visit Date" type="date" value={reviewForm.visitDate} onChange={(value) => setReviewForm((current) => ({ ...current, visitDate: value }))} />
+                    </div>
+                    <label className="mt-3 block">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Comment</span>
+                      <textarea
+                        rows={3}
+                        value={reviewForm.comment}
+                        onChange={(event) => setReviewForm((current) => ({ ...current, comment: event.target.value }))}
+                        className="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100 dark:border-gray-700 dark:bg-gray-950"
+                        required
+                      />
+                    </label>
+                    <Field label="Images" value={reviewForm.images} onChange={(value) => setReviewForm((current) => ({ ...current, images: value }))} />
+                    <Button className="mt-4" type="submit" disabled={reviewSubmitting || reviewForm.comment.trim().length < 5}>
+                      {reviewSubmitting
+                        ? "Saving..."
+                        : editingReviewId
+                          ? "Update Review"
+                          : "Submit Review"}
+                    </Button>
+                  </form>
+                ) : null}
                 {homestay.reviews.length ? (
                   <div className="mt-4 space-y-3">
                     {homestay.reviews.map((review) => (
@@ -434,10 +730,57 @@ export default function HomestayDetailPage() {
                         <p className="font-medium">
                           {review.user?.fullName || "Guest"} rated {review.rating}/5
                         </p>
+                        <p className="mt-1 text-sm text-gray-500">
+                          Visit: {review.visitDate ? new Date(review.visitDate).toLocaleDateString() : "Not specified"}
+                        </p>
                         {review.comment ? (
                           <p className="mt-2 text-gray-600 dark:text-gray-300">
                             {review.comment}
                           </p>
+                        ) : null}
+                        {review.images?.length ? (
+                          <div className="mt-3 flex gap-2 overflow-x-auto">
+                            {review.images.map((image) => (
+                              <img key={image} src={image} alt="Review" className="h-16 w-20 rounded-md object-cover" />
+                            ))}
+                          </div>
+                        ) : null}
+                        {review.ownerReply ? (
+                          <div className="mt-3 rounded-lg bg-green-50 p-3 text-sm text-green-900 dark:bg-green-950 dark:text-green-200">
+                            <strong>Owner reply:</strong> {review.ownerReply}
+                          </div>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => handleHelpful(review.id)}
+                          className="mt-3 rounded-lg border border-gray-200 px-3 py-2 text-sm transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-950"
+                        >
+                          Helpful ({review.helpfulCount || 0})
+                        </button>
+                        {(review.user?.id === user?.id || user?.role === "ADMIN") ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {review.user?.id === user?.id ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="px-3 py-2 text-sm"
+                                onClick={() => startEditReview(review)}
+                              >
+                                Edit
+                              </Button>
+                            ) : null}
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              className="px-3 py-2 text-sm"
+                              disabled={deletingReviewId === review.id}
+                              onClick={() => handleDeleteReview(review.id)}
+                            >
+                              {deletingReviewId === review.id
+                                ? "Deleting..."
+                                : "Delete"}
+                            </Button>
+                          </div>
                         ) : null}
                       </div>
                     ))}
@@ -478,7 +821,14 @@ export default function HomestayDetailPage() {
                 Rs {homestay.pricePerNight}
                 <span className="text-sm font-normal text-gray-500"> / night</span>
               </p>
-              <Button className="mt-5 w-full" onClick={() => setBookingOpen(true)}>
+              <Button
+                className="mt-5 w-full"
+                onClick={() => {
+                  setPaymentStage("summary");
+                  setReceipt(null);
+                  setBookingOpen(true);
+                }}
+              >
                 {existingBooking ? "View Booking Request" : "Book Now"}
               </Button>
               {existingBooking ? (
@@ -514,6 +864,26 @@ export default function HomestayDetailPage() {
                   <CalendarDays size={17} /> Host confirmation required.
                 </p>
               </div>
+              <div className="mt-5 rounded-lg border border-gray-200 p-4 dark:border-gray-800">
+                <h3 className="font-semibold text-gray-950 dark:text-white">Booking Calendar</h3>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                  {calendarDays.map((day) => (
+                    <div
+                      key={day.date.toISOString()}
+                      className={`rounded-lg p-2 text-center ${
+                        day.status === "Unavailable"
+                          ? "bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200"
+                          : day.status === "Partially Available"
+                            ? "bg-yellow-50 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200"
+                            : "bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200"
+                      }`}
+                    >
+                      <p className="font-medium">{day.label}</p>
+                      <p>{day.status}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </aside>
           </section>
         </div>
@@ -528,16 +898,37 @@ export default function HomestayDetailPage() {
         }}
       >
         <form className="space-y-4" onSubmit={handleBookingSubmit}>
+          {paymentStage === "processing" ? (
+            <div className="rounded-lg bg-stone-50 p-8 text-center dark:bg-gray-950">
+              <Loader size={42} />
+              <p className="mt-4 font-medium">Processing fake payment...</p>
+            </div>
+          ) : paymentStage === "done" && receipt ? (
+            <div className="rounded-lg border border-green-200 bg-green-50 p-5 text-green-900 dark:border-green-900 dark:bg-green-950 dark:text-green-100">
+              <h3 className="text-lg font-semibold">Booking Request Submitted</h3>
+              <p className="mt-2">Owner Approval Pending</p>
+              <p className="mt-2 text-sm">Receipt ID: {receipt.id}</p>
+              <Button type="button" className="mt-4" onClick={handleDownloadReceipt}>
+                <span className="inline-flex items-center gap-2">
+                  <Download size={17} />
+                  Download Receipt
+                </span>
+              </Button>
+            </div>
+          ) : (
+            <>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
               label="Check-in"
               type="date"
+              min={todayValue()}
               value={form.checkIn}
               onChange={(value) => setForm((current) => ({ ...current, checkIn: value }))}
             />
             <Field
               label="Check-out"
               type="date"
+              min={form.checkIn || todayValue()}
               value={form.checkOut}
               onChange={(value) => setForm((current) => ({ ...current, checkOut: value }))}
             />
@@ -592,9 +983,11 @@ export default function HomestayDetailPage() {
               Cancel
             </Button>
             <Button type="submit" disabled={submitting}>
-              {submitting ? "Requesting..." : "Request Booking"}
+              {submitting ? "Processing..." : "Proceed"}
             </Button>
           </div>
+            </>
+          )}
         </form>
       </Modal>
     </>

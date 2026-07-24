@@ -1,8 +1,7 @@
 import axios from "axios";
 
 function resolveApiBaseUrl() {
-  const configuredUrl =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  const configuredUrl = process.env.NEXT_PUBLIC_API_URL || "/api";
   const normalizedUrl = configuredUrl.replace(/\/+$/, "");
 
   return normalizedUrl.endsWith("/api")

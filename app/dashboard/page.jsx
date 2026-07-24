@@ -24,6 +24,7 @@ import Button from "@/components/ui/Button";
 import { getApiErrorMessage } from "@/lib/api";
 import { cancelBooking, getMyBookings } from "@/services/booking.service";
 import { getHomestays } from "@/services/homestay.service";
+import { getWishlist } from "@/services/favorite.service";
 
 const AI_HISTORY_KEY = "phularistay_ai_plan_history";
 
@@ -33,6 +34,7 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const [homestays, setHomestays] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [wishlistItems, setWishlistItems] = useState([]);
   const [aiPlans] = useState(() => {
     if (typeof window === "undefined") return [];
 
@@ -53,12 +55,14 @@ export default function DashboardPage() {
     setError("");
 
     try {
-      const [homestayData, bookingData] = await Promise.all([
+      const [homestayData, bookingData, wishlistData] = await Promise.all([
         getHomestays(),
         getMyBookings(),
+        getWishlist(),
       ]);
       setHomestays(homestayData);
       setBookings(bookingData);
+      setWishlistItems(wishlistData);
     } catch (error) {
       setError(getApiErrorMessage(error, "Unable to load dashboard data."));
     } finally {
@@ -94,11 +98,6 @@ export default function DashboardPage() {
   }, [bookings]);
 
   const recentActivity = useMemo(() => bookings.slice(0, 5), [bookings]);
-
-  const wishlist = useMemo(
-    () => user?.favoriteDestinations?.filter(Boolean) || [],
-    [user]
-  );
 
   const stats = useMemo(
     () => [
@@ -263,13 +262,28 @@ export default function DashboardPage() {
 
                 <div className="space-y-6">
                   <SidePanel title="Wishlist">
-                    {wishlist.length ? (
-                      <div className="flex flex-wrap gap-2">
-                        {wishlist.map((destination) => (
-                          <span key={destination} className="rounded-full bg-green-50 px-3 py-1 text-sm text-green-800 dark:bg-green-950 dark:text-green-300">
-                            {destination}
-                          </span>
+                    {wishlistItems.length ? (
+                      <div className="space-y-3">
+                        {wishlistItems.slice(0, 4).map((favorite) => (
+                          <Link
+                            key={favorite.id}
+                            href={`/homestays/${favorite.homestayId}`}
+                            className="block rounded-lg border border-gray-200 p-3 transition hover:bg-green-50 dark:border-gray-800 dark:hover:bg-green-950"
+                          >
+                            <p className="font-medium text-gray-950 dark:text-white">
+                              {favorite.homestay?.name || "Saved homestay"}
+                            </p>
+                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                              {favorite.homestay?.location || "Location"}
+                            </p>
+                          </Link>
                         ))}
+                        <Link
+                          href="/wishlist"
+                          className="inline-flex text-sm font-medium text-green-700 dark:text-green-400"
+                        >
+                          View wishlist
+                        </Link>
                       </div>
                     ) : (
                       <EmptySmall icon={Heart} text="No wishlist destinations yet." />

@@ -26,11 +26,22 @@ export interface Homestay {
       checkOut: string;
       status: string;
     }[];
+    availabilityOverrides?: {
+      id: string;
+      roomId: string;
+      date: string;
+      availableRooms: number;
+      note?: string | null;
+    }[];
   }[];
   reviews: {
     id: string;
     rating: number;
     comment?: string;
+    images?: string[];
+    visitDate?: string;
+    helpfulCount?: number;
+    ownerReply?: string | null;
     createdAt?: string;
     user?: {
       id: string;

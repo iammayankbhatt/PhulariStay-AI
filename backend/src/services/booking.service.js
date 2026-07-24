@@ -19,21 +19,75 @@ const validateDates = (checkIn, checkOut) => {
   }
 };
 
-const countOverlappingBookings = async ({ roomId, checkIn, checkOut }) => {
-  return prisma.booking.count({
-    where: {
-      roomId,
-      status: {
-        in: activeStatuses,
-      },
-      checkIn: {
-        lt: checkOut,
-      },
-      checkOut: {
-        gt: checkIn,
-      },
-    },
-  });
+const getStayDates = (checkIn, checkOut) => {
+  const dates = [];
+  const cursor = new Date(checkIn);
+  cursor.setHours(0, 0, 0, 0);
+  const end = new Date(checkOut);
+  end.setHours(0, 0, 0, 0);
+
+  while (cursor < end) {
+    dates.push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return dates;
+};
+
+const assertRoomAvailableForDates = async ({
+  room,
+  checkIn,
+  checkOut,
+  excludeBookingId,
+}) => {
+  const dates = getStayDates(checkIn, checkOut);
+
+  for (const date of dates) {
+    const nextDate = new Date(date);
+    nextDate.setDate(date.getDate() + 1);
+
+    const [bookedRooms, override] = await Promise.all([
+      prisma.booking.count({
+        where: {
+          roomId: room.id,
+          ...(excludeBookingId
+            ? {
+                id: {
+                  not: excludeBookingId,
+                },
+              }
+            : {}),
+          status: {
+            in: activeStatuses,
+          },
+          checkIn: {
+            lt: nextDate,
+          },
+          checkOut: {
+            gt: date,
+          },
+        },
+      }),
+      prisma.roomAvailabilityOverride.findUnique({
+        where: {
+          roomId_date: {
+            roomId: room.id,
+            date,
+          },
+        },
+      }),
+    ]);
+
+    const bookableRooms = override?.availableRooms ?? room.totalRooms;
+
+    if (bookedRooms >= bookableRooms) {
+      const error = new Error(
+        `Selected room type is not available on ${date.toLocaleDateString()}`
+      );
+      error.statusCode = 409;
+      throw error;
+    }
+  }
 };
 
 export async function createBooking(userId, data) {
@@ -57,17 +111,7 @@ export async function createBooking(userId, data) {
     throw error;
   }
 
-  const bookedRooms = await countOverlappingBookings({
-    roomId: room.id,
-    checkIn,
-    checkOut,
-  });
-
-  if (bookedRooms >= room.totalRooms) {
-    const error = new Error("Selected room type is not available for these dates");
-    error.statusCode = 409;
-    throw error;
-  }
+  await assertRoomAvailableForDates({ room, checkIn, checkOut });
 
   const guests = Number(data.guests);
 
@@ -243,42 +287,17 @@ export async function updateBookingRequestStatus(user, id, status) {
         },
       });
 
-      if (!room || room.availableRooms < 1) {
+      if (!room) {
         const error = new Error("This room type is no longer available");
         error.statusCode = 409;
         throw error;
       }
 
-      const overlappingBookings = await tx.booking.count({
-        where: {
-          roomId: booking.roomId,
-          status: {
-            in: activeStatuses,
-          },
-          checkIn: {
-            lt: booking.checkOut,
-          },
-          checkOut: {
-            gt: booking.checkIn,
-          },
-        },
-      });
-
-      if (overlappingBookings > room.totalRooms) {
-        const error = new Error("This booking would exceed available rooms");
-        error.statusCode = 409;
-        throw error;
-      }
-
-      await tx.room.update({
-        where: {
-          id: booking.roomId,
-        },
-        data: {
-          availableRooms: {
-            decrement: 1,
-          },
-        },
+      await assertRoomAvailableForDates({
+        room,
+        checkIn: booking.checkIn,
+        checkOut: booking.checkOut,
+        excludeBookingId: booking.id,
       });
     }
 

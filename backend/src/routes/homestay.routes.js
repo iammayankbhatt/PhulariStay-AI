@@ -34,6 +34,20 @@ router.put(
   controller.update
 );
 
+router.patch(
+  "/:id/rooms/:roomId/availability",
+  verifyToken,
+  requireRole("OWNER", "ADMIN"),
+  controller.updateRoomAvailability
+);
+
+router.patch(
+  "/:id/rooms/:roomId/calendar",
+  verifyToken,
+  requireRole("OWNER", "ADMIN"),
+  controller.updateRoomDateAvailability
+);
+
 router.delete(
   "/:id",
   verifyToken,

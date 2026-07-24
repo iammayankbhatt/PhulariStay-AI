@@ -37,7 +37,7 @@ async function main() {
   });
 
   // ----- Create Admin -----
-  const admin = await prisma.user.create({
+  await prisma.user.create({
     data: {
       fullName: "Admin",
       email: "admin@PhulariStay.com",
@@ -398,11 +398,12 @@ async function main() {
     },
   });
 
-  console.log(" Seed data inserted successfully!");
 }
 
 main()
-  .catch(console.error)
+  .catch(() => {
+    process.exitCode = 1;
+  })
   .finally(async () => {
     await prisma.$disconnect();
   });

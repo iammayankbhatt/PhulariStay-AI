@@ -34,6 +34,12 @@ export default function Navbar() {
             AI Planner
           </Link>
 
+          {isAuthenticated ? (
+            <Link href="/wishlist" className="hover:text-green-700 dark:hover:text-green-400 transition">
+              Wishlist
+            </Link>
+          ) : null}
+
           {user?.role === "OWNER" || user?.role === "ADMIN" ? (
             <Link href="/owner" className="hover:text-green-700 dark:hover:text-green-400 transition">
               Owner

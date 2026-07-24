@@ -29,3 +29,27 @@ export async function updateHomestay(
 export async function deleteHomestay(id: string): Promise<void> {
   await api.delete(`/homestays/${id}`);
 }
+
+export async function updateRoomAvailability(
+  homestayId: string,
+  roomId: string,
+  availableRooms: number
+) {
+  const response = await api.patch(
+    `/homestays/${homestayId}/rooms/${roomId}/availability`,
+    { availableRooms }
+  );
+  return response.data.room;
+}
+
+export async function updateRoomDateAvailability(
+  homestayId: string,
+  roomId: string,
+  payload: { date: string; availableRooms: number; note?: string }
+) {
+  const response = await api.patch(
+    `/homestays/${homestayId}/rooms/${roomId}/calendar`,
+    payload
+  );
+  return response.data.availability;
+}

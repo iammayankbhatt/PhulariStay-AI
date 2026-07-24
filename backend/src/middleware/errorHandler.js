@@ -1,4 +1,5 @@
 export const errorHandler = (err, req, res, next) => {
+  void next;
   console.error(err);
 
   if (err.code === "P2025") {

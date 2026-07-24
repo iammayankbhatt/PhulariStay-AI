@@ -8,7 +8,7 @@ npm run dev
 ```
 Runs on
 
-http://localhost:5000
+<backend-url>
 ---
 
 ## Environment variables

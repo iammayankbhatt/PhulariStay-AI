@@ -33,8 +33,14 @@ import {
   createHomestay,
   deleteHomestay,
   getHomestays,
+  updateRoomDateAvailability,
   updateHomestay,
 } from "@/services/homestay.service";
+import {
+  createCivicReview,
+  deleteReview,
+  replyToReview,
+} from "@/services/review.service";
 import { Homestay, HomestayPayload } from "@/types/homestay";
 
 type FormState = {
@@ -202,6 +208,31 @@ export default function OwnerPage() {
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [updatingBookingId, setUpdatingBookingId] = useState("");
+  const [reviewReplies, setReviewReplies] = useState<Record<string, string>>({});
+  const [replyingReviewId, setReplyingReviewId] = useState("");
+  const [deletingReviewId, setDeletingReviewId] = useState("");
+  const [civicReviewTarget, setCivicReviewTarget] = useState<Booking | null>(
+    null
+  );
+  const [civicReviewForm, setCivicReviewForm] = useState({
+    rating: "5",
+    comment: "",
+    images: "",
+  });
+  const [savingCivicReview, setSavingCivicReview] = useState(false);
+  const [availabilityTarget, setAvailabilityTarget] = useState<{
+    homestayId: string;
+    room: Homestay["rooms"][number];
+    date: string;
+    label: string;
+    bookedRooms: number;
+    currentAvailable: number;
+  } | null>(null);
+  const [availabilityForm, setAvailabilityForm] = useState({
+    availableRooms: "",
+    note: "",
+  });
+  const [savingDateAvailability, setSavingDateAvailability] = useState(false);
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error" | "warning";
@@ -534,6 +565,169 @@ export default function OwnerPage() {
     [fetchHomestays]
   );
 
+  const handleReviewReply = useCallback(
+    async (reviewId: string) => {
+      const ownerReply = reviewReplies[reviewId]?.trim();
+
+      if (!ownerReply) {
+        setToast({
+          message: "Please enter a reply before submitting.",
+          type: "warning",
+        });
+        return;
+      }
+
+      setReplyingReviewId(reviewId);
+      setToast(null);
+
+      try {
+        await replyToReview(reviewId, ownerReply);
+        setToast({ message: "Owner reply posted.", type: "success" });
+        setReviewReplies((current) => ({ ...current, [reviewId]: "" }));
+        await fetchHomestays(false);
+      } catch (error) {
+        setToast({
+          message: getApiErrorMessage(error, "Unable to reply to review."),
+          type: "error",
+        });
+      } finally {
+        setReplyingReviewId("");
+      }
+    },
+    [fetchHomestays, reviewReplies]
+  );
+
+  const handleDeleteReview = useCallback(
+    async (reviewId: string) => {
+      setDeletingReviewId(reviewId);
+      setToast(null);
+
+      try {
+        await deleteReview(reviewId);
+        setToast({ message: "Review deleted.", type: "success" });
+        await fetchHomestays(false);
+      } catch (error) {
+        setToast({
+          message: getApiErrorMessage(error, "Unable to delete review."),
+          type: "error",
+        });
+      } finally {
+        setDeletingReviewId("");
+      }
+    },
+    [fetchHomestays]
+  );
+
+  const openCivicReview = useCallback((booking: Booking) => {
+    setCivicReviewTarget(booking);
+    setCivicReviewForm({
+      rating: "5",
+      comment: "",
+      images: "",
+    });
+  }, []);
+
+  const handleCivicReviewSubmit = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (!civicReviewTarget?.user?.id) return;
+
+      setSavingCivicReview(true);
+      setToast(null);
+
+      try {
+        await createCivicReview({
+          targetUserId: civicReviewTarget.user.id,
+          rating: Number(civicReviewForm.rating),
+          comment: civicReviewForm.comment.trim(),
+          images: splitList(civicReviewForm.images),
+        });
+        setToast({
+          message: "Guest civic review saved.",
+          type: "success",
+        });
+        setCivicReviewTarget(null);
+      } catch (error) {
+        setToast({
+          message: getApiErrorMessage(error, "Unable to save civic review."),
+          type: "error",
+        });
+      } finally {
+        setSavingCivicReview(false);
+      }
+    },
+    [civicReviewForm, civicReviewTarget]
+  );
+
+  const openDateAvailability = useCallback(
+    (target: {
+      homestayId: string;
+      room: Homestay["rooms"][number];
+      date: string;
+      label: string;
+      bookedRooms: number;
+      currentAvailable: number;
+      note?: string | null;
+    }) => {
+      setAvailabilityTarget(target);
+      setAvailabilityForm({
+        availableRooms: String(target.currentAvailable),
+        note: target.note || "",
+      });
+    },
+    []
+  );
+
+  const saveDateAvailability = useCallback(async () => {
+    if (!availabilityTarget) return;
+
+    const totalRooms = availabilityTarget.room.totalRooms ?? 0;
+    const availableRooms = Number(availabilityForm.availableRooms);
+
+    if (
+      !Number.isInteger(availableRooms) ||
+      availableRooms < availabilityTarget.bookedRooms ||
+      availableRooms > totalRooms
+    ) {
+      setToast({
+        message: `Availability must be between booked rooms (${availabilityTarget.bookedRooms}) and total rooms (${totalRooms}).`,
+        type: "warning",
+      });
+      return;
+    }
+
+    setSavingDateAvailability(true);
+    setToast(null);
+
+    try {
+      await updateRoomDateAvailability(
+        availabilityTarget.homestayId,
+        availabilityTarget.room.id,
+        {
+          date: availabilityTarget.date,
+          availableRooms,
+          note: availabilityForm.note.trim(),
+        }
+      );
+      setToast({
+        message: "Date availability updated.",
+        type: "success",
+      });
+      setAvailabilityTarget(null);
+      await fetchHomestays(false);
+    } catch (error) {
+      setToast({
+        message: getApiErrorMessage(
+          error,
+          "Unable to update date availability."
+        ),
+        type: "error",
+      });
+    } finally {
+      setSavingDateAvailability(false);
+    }
+  }, [availabilityForm, availabilityTarget, fetchHomestays]);
+
   return (
     <ProtectedRoute roles={["OWNER", "ADMIN"]}>
       <Navbar />
@@ -634,6 +828,72 @@ export default function OwnerPage() {
           </section>
 
           <section className="mb-6 grid gap-6 lg:grid-cols-[1fr_1fr]">
+            <div className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-900 lg:col-span-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h2 className="text-2xl font-semibold text-gray-950 dark:text-white">
+                    Room Availability
+                  </h2>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    Add or remove available rooms for bookings, renovation, maintenance, or manual holds.
+                  </p>
+                </div>
+              </div>
+
+              {ownerHomestays.length ? (
+                <div className="mt-5 space-y-5">
+                  {ownerHomestays.map((homestay) => (
+                    <div
+                      key={homestay.id}
+                      className="rounded-lg border border-gray-200 p-4 dark:border-gray-800"
+                    >
+                      <h3 className="text-lg font-semibold text-gray-950 dark:text-white">
+                        {homestay.name}
+                      </h3>
+                      {homestay.rooms.length ? (
+                        <div className="mt-4 grid gap-4 xl:grid-cols-2">
+                          {homestay.rooms.map((room) => (
+                            <div
+                              key={room.id}
+                              className="rounded-lg bg-stone-50 p-4 dark:bg-gray-950"
+                            >
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                  <p className="font-semibold text-gray-950 dark:text-white">
+                                    {room.roomType || "Room"}
+                                  </p>
+                                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                    Total inventory: {room.totalRooms ?? 0} rooms
+                                  </p>
+                                </div>
+                                <span className="rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-800 dark:bg-blue-950 dark:text-blue-200">
+                                  Click a date to edit
+                                </span>
+                              </div>
+
+                              <RoomAvailabilityCalendar
+                                homestayId={homestay.id}
+                                room={room}
+                                onSelectDate={openDateAvailability}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="mt-4 rounded-lg border border-dashed border-gray-300 p-6 text-center text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                          No room types added yet.
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-5 rounded-lg border border-dashed border-gray-300 p-8 text-center text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                  Add a property before managing room availability.
+                </div>
+              )}
+            </div>
+
             <div className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-900">
               <h2 className="text-2xl font-semibold text-gray-950 dark:text-white">
                 Recent Reviews
@@ -657,6 +917,47 @@ export default function OwnerPage() {
                       <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
                         {review.comment || "No written review provided."}
                       </p>
+                      {review.ownerReply ? (
+                        <div className="mt-3 rounded-lg bg-green-50 p-3 text-sm text-green-900 dark:bg-green-950 dark:text-green-100">
+                          <strong>Your reply:</strong> {review.ownerReply}
+                        </div>
+                      ) : (
+                        <div className="mt-3 space-y-2">
+                          <textarea
+                            rows={2}
+                            value={reviewReplies[review.id] || ""}
+                            onChange={(event) =>
+                              setReviewReplies((current) => ({
+                                ...current,
+                                [review.id]: event.target.value,
+                              }))
+                            }
+                            placeholder="Reply as owner"
+                            className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100 dark:border-gray-700 dark:bg-gray-950"
+                          />
+                          <Button
+                            type="button"
+                            className="px-3 py-2 text-sm"
+                            disabled={replyingReviewId === review.id}
+                            onClick={() => handleReviewReply(review.id)}
+                          >
+                            {replyingReviewId === review.id
+                              ? "Replying..."
+                              : "Reply"}
+                          </Button>
+                        </div>
+                      )}
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="mt-3 px-3 py-2 text-sm"
+                        disabled={deletingReviewId === review.id}
+                        onClick={() => handleDeleteReview(review.id)}
+                      >
+                        {deletingReviewId === review.id
+                          ? "Deleting..."
+                          : "Delete Review"}
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -767,6 +1068,16 @@ export default function OwnerPage() {
                             Reject
                           </Button>
                         </div>
+                      ) : null}
+                      {booking.user?.id ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="px-3 py-2 text-sm"
+                          onClick={() => openCivicReview(booking)}
+                        >
+                          Review Guest
+                        </Button>
                       ) : null}
                     </div>
                   </div>
@@ -1065,6 +1376,88 @@ export default function OwnerPage() {
       </Modal>
 
       <Modal
+        isOpen={Boolean(civicReviewTarget)}
+        title="Review Guest"
+        onClose={() => {
+          if (!savingCivicReview) setCivicReviewTarget(null);
+        }}
+      >
+        {civicReviewTarget ? (
+          <form className="space-y-4" onSubmit={handleCivicReviewSubmit}>
+            <div className="rounded-lg bg-stone-50 p-4 dark:bg-gray-950">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Civic review for
+              </p>
+              <p className="mt-1 font-semibold text-gray-950 dark:text-white">
+                {civicReviewTarget.user?.fullName || "Guest"}
+              </p>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {civicReviewTarget.user?.email}
+              </p>
+            </div>
+            <Field
+              label="Rating"
+              type="number"
+              value={civicReviewForm.rating}
+              onChange={(value) =>
+                setCivicReviewForm((current) => ({
+                  ...current,
+                  rating: value,
+                }))
+              }
+            />
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                Comment
+              </span>
+              <textarea
+                rows={4}
+                value={civicReviewForm.comment}
+                onChange={(event) =>
+                  setCivicReviewForm((current) => ({
+                    ...current,
+                    comment: event.target.value,
+                  }))
+                }
+                className="mt-2 w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-3 text-gray-950 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-100 dark:border-gray-700 dark:bg-gray-950 dark:text-white"
+                required
+              />
+            </label>
+            <Field
+              label="Images"
+              placeholder="https://image-1.jpg, https://image-2.jpg"
+              value={civicReviewForm.images}
+              onChange={(value) =>
+                setCivicReviewForm((current) => ({
+                  ...current,
+                  images: value,
+                }))
+              }
+            />
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={savingCivicReview}
+                onClick={() => setCivicReviewTarget(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  savingCivicReview ||
+                  civicReviewForm.comment.trim().length < 5
+                }
+              >
+                {savingCivicReview ? "Saving..." : "Save Civic Review"}
+              </Button>
+            </div>
+          </form>
+        ) : null}
+      </Modal>
+
+      <Modal
         isOpen={Boolean(deleteTarget)}
         title="Delete Homestay"
         onClose={() => {
@@ -1092,6 +1485,89 @@ export default function OwnerPage() {
             {deleting ? "Deleting..." : "Delete"}
           </Button>
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={Boolean(availabilityTarget)}
+        title="Edit Date Availability"
+        onClose={() => {
+          if (!savingDateAvailability) setAvailabilityTarget(null);
+        }}
+      >
+        {availabilityTarget ? (
+          <div className="space-y-4">
+            <div className="rounded-lg bg-stone-50 p-4 dark:bg-gray-950">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {availabilityTarget.room.roomType || "Room"} on{" "}
+                {availabilityTarget.label}
+              </p>
+              <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">
+                Total rooms: {availabilityTarget.room.totalRooms ?? 0}
+              </p>
+              <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+                Already booked: {availabilityTarget.bookedRooms}
+              </p>
+            </div>
+
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                Bookable rooms for this date
+              </span>
+              <input
+                type="number"
+                min={availabilityTarget.bookedRooms}
+                max={availabilityTarget.room.totalRooms ?? 0}
+                value={availabilityForm.availableRooms}
+                onChange={(event) =>
+                  setAvailabilityForm((current) => ({
+                    ...current,
+                    availableRooms: event.target.value,
+                  }))
+                }
+                className="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-3 text-gray-950 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100 dark:border-gray-700 dark:bg-gray-950 dark:text-white"
+              />
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                This cannot be lower than existing bookings, so booked rooms are never removed.
+              </p>
+            </label>
+
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                Reason / note
+              </span>
+              <textarea
+                rows={3}
+                value={availabilityForm.note}
+                onChange={(event) =>
+                  setAvailabilityForm((current) => ({
+                    ...current,
+                    note: event.target.value,
+                  }))
+                }
+                placeholder="Renovation, maintenance, private hold..."
+                className="mt-2 w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-3 text-gray-950 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100 dark:border-gray-700 dark:bg-gray-950 dark:text-white"
+              />
+            </label>
+
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={savingDateAvailability}
+                onClick={() => setAvailabilityTarget(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={savingDateAvailability}
+                onClick={saveDateAvailability}
+              >
+                {savingDateAvailability ? "Saving..." : "Save Date"}
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </Modal>
     </ProtectedRoute>
   );
@@ -1150,5 +1626,124 @@ function TextArea({
       />
       {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
     </label>
+  );
+}
+
+function RoomAvailabilityCalendar({
+  homestayId,
+  room,
+  onSelectDate,
+}: {
+  homestayId: string;
+  room: Homestay["rooms"][number];
+  onSelectDate: (target: {
+    homestayId: string;
+    room: Homestay["rooms"][number];
+    date: string;
+    label: string;
+    bookedRooms: number;
+    currentAvailable: number;
+    note?: string | null;
+  }) => void;
+}) {
+  const [baseDate] = useState(() => new Date().toISOString());
+  const days = useMemo(() => {
+    const start = new Date(baseDate);
+    start.setHours(0, 0, 0, 0);
+
+    return Array.from({ length: 14 }, (_, index) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + index);
+      const dateKey = date.toISOString().slice(0, 10);
+      const booked =
+        room.bookings?.filter((booking) => {
+          const checkIn = new Date(booking.checkIn);
+          const checkOut = new Date(booking.checkOut);
+          return (
+            ["PENDING", "CONFIRMED"].includes(booking.status) &&
+            checkIn <= date &&
+            checkOut > date
+          );
+        }).length ?? 0;
+      const override = room.availabilityOverrides?.find(
+        (item) => item.date.slice(0, 10) === dateKey
+      );
+      const totalRooms = room.totalRooms ?? 0;
+      const bookableRooms = override?.availableRooms ?? totalRooms;
+      const available = Math.max(bookableRooms - booked, 0);
+      const status =
+        available === 0
+          ? "Unavailable"
+          : booked > 0
+            ? "Partially Available"
+            : "Available";
+
+      return {
+        key: dateKey,
+        date: dateKey,
+        label: date.toLocaleDateString(undefined, {
+          day: "2-digit",
+          month: "short",
+        }),
+        available,
+        booked,
+        bookableRooms,
+        note: override?.note,
+        hasOverride: Boolean(override),
+        status,
+      };
+    });
+  }, [
+    baseDate,
+    room.availabilityOverrides,
+    room.bookings,
+    room.totalRooms,
+  ]);
+
+  return (
+    <div className="mt-4">
+      <div className="mb-2 flex flex-wrap gap-2 text-xs">
+        <span className="rounded-full bg-green-50 px-2 py-1 text-green-800 dark:bg-green-950 dark:text-green-200">
+          Available
+        </span>
+        <span className="rounded-full bg-yellow-50 px-2 py-1 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200">
+          Partially Available
+        </span>
+        <span className="rounded-full bg-red-50 px-2 py-1 text-red-800 dark:bg-red-950 dark:text-red-200">
+          Unavailable
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+        {days.map((day) => (
+          <button
+            type="button"
+            key={day.key}
+            onClick={() =>
+              onSelectDate({
+                homestayId,
+                room,
+                date: day.date,
+                label: day.label,
+                bookedRooms: day.booked,
+                currentAvailable: day.bookableRooms,
+                note: day.note,
+              })
+            }
+            className={`rounded-lg p-2 text-center text-xs ${
+              day.status === "Unavailable"
+                ? "bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200"
+                : day.status === "Partially Available"
+                  ? "bg-yellow-50 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200"
+                  : "bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200"
+            } transition hover:ring-2 hover:ring-green-500 focus:outline-none focus:ring-2 focus:ring-green-500`}
+          >
+            <p className="font-semibold">{day.label}</p>
+            <p>{day.available} left</p>
+            {day.booked ? <p>{day.booked} booked</p> : null}
+            {day.hasOverride ? <p className="mt-1 font-semibold">Edited</p> : null}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

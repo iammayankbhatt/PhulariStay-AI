@@ -12,7 +12,18 @@ export async function getAllHomestays() {
           civicScore: true,
         },
       },
-      rooms: true,
+      rooms: {
+        include: {
+          bookings: {
+            where: {
+              status: {
+                in: ["PENDING", "CONFIRMED"],
+              },
+            },
+          },
+          availabilityOverrides: true,
+        },
+      },
       reviews: true,
     },
   });
@@ -33,7 +44,18 @@ export async function getHomestayById(id) {
           civicScore: true,
         },
       },
-      rooms: true,
+      rooms: {
+        include: {
+          bookings: {
+            where: {
+              status: {
+                in: ["PENDING", "CONFIRMED"],
+              },
+            },
+          },
+          availabilityOverrides: true,
+        },
+      },
       reviews: {
         include: {
           user: {
@@ -199,6 +221,169 @@ export async function deleteHomestay(id) {
   return prisma.homestay.delete({
     where: {
       id,
+    },
+  });
+}
+
+export async function updateRoomAvailability({
+  user,
+  homestayId,
+  roomId,
+  availableRooms,
+}) {
+  const homestay = await prisma.homestay.findUnique({
+    where: {
+      id: homestayId,
+    },
+    include: {
+      rooms: true,
+    },
+  });
+
+  if (!homestay) {
+    const error = new Error("Homestay not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (user.role !== "ADMIN" && homestay.ownerId !== user.id) {
+    const error = new Error("Only the owner can update room availability");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const room = homestay.rooms.find((item) => item.id === roomId);
+
+  if (!room) {
+    const error = new Error("Room not found for this homestay");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const nextAvailableRooms = Number(availableRooms);
+
+  if (
+    !Number.isInteger(nextAvailableRooms) ||
+    nextAvailableRooms < 0 ||
+    nextAvailableRooms > room.totalRooms
+  ) {
+    const error = new Error(
+      `Available rooms must be between 0 and ${room.totalRooms}`
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return prisma.room.update({
+    where: {
+      id: roomId,
+    },
+    data: {
+      availableRooms: nextAvailableRooms,
+    },
+  });
+}
+
+const normalizeDate = (value) => {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+export async function updateRoomDateAvailability({
+  user,
+  homestayId,
+  roomId,
+  date,
+  availableRooms,
+  note,
+}) {
+  const normalizedDate = normalizeDate(date);
+  const nextAvailableRooms = Number(availableRooms);
+
+  const homestay = await prisma.homestay.findUnique({
+    where: {
+      id: homestayId,
+    },
+    include: {
+      rooms: true,
+    },
+  });
+
+  if (!homestay) {
+    const error = new Error("Homestay not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (user.role !== "ADMIN" && homestay.ownerId !== user.id) {
+    const error = new Error("Only the owner can update room availability");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const room = homestay.rooms.find((item) => item.id === roomId);
+
+  if (!room) {
+    const error = new Error("Room not found for this homestay");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (
+    Number.isNaN(normalizedDate.getTime()) ||
+    !Number.isInteger(nextAvailableRooms) ||
+    nextAvailableRooms < 0 ||
+    nextAvailableRooms > room.totalRooms
+  ) {
+    const error = new Error(
+      `Available rooms must be between 0 and ${room.totalRooms}`
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const nextDate = new Date(normalizedDate);
+  nextDate.setDate(normalizedDate.getDate() + 1);
+  const bookedRooms = await prisma.booking.count({
+    where: {
+      roomId,
+      status: {
+        in: ["PENDING", "CONFIRMED"],
+      },
+      checkIn: {
+        lt: nextDate,
+      },
+      checkOut: {
+        gt: normalizedDate,
+      },
+    },
+  });
+
+  if (nextAvailableRooms < bookedRooms) {
+    const error = new Error(
+      `This date already has ${bookedRooms} booked room(s). Availability cannot be lower than booked rooms.`
+    );
+    error.statusCode = 409;
+    throw error;
+  }
+
+  return prisma.roomAvailabilityOverride.upsert({
+    where: {
+      roomId_date: {
+        roomId,
+        date: normalizedDate,
+      },
+    },
+    create: {
+      roomId,
+      date: normalizedDate,
+      availableRooms: nextAvailableRooms,
+      note: note || null,
+    },
+    update: {
+      availableRooms: nextAvailableRooms,
+      note: note || null,
     },
   });
 }

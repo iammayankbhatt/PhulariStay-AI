@@ -106,3 +106,41 @@ export const remove = async (req, res, next) => {
     next(error);
   }
 };
+
+export const updateRoomAvailability = async (req, res, next) => {
+  try {
+    const room = await service.updateRoomAvailability({
+      user: req.user,
+      homestayId: req.params.id,
+      roomId: req.params.roomId,
+      availableRooms: req.body.availableRooms,
+    });
+
+    res.status(200).json({
+      success: true,
+      room,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateRoomDateAvailability = async (req, res, next) => {
+  try {
+    const availability = await service.updateRoomDateAvailability({
+      user: req.user,
+      homestayId: req.params.id,
+      roomId: req.params.roomId,
+      date: req.body.date,
+      availableRooms: req.body.availableRooms,
+      note: req.body.note,
+    });
+
+    res.status(200).json({
+      success: true,
+      availability,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

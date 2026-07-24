@@ -10,6 +10,7 @@ import authRoutes from "./routes/auth.routes.js";
 import bookingRoutes from "./routes/booking.routes.js";
 import homestayRoutes from "./routes/homestay.routes.js";
 import reviewRoutes from "./routes/review.routes.js";
+import favoriteRoutes from "./routes/favorite.routes.js";
 import aiRoutes from "./routes/ai.routes.js";
 
 import { notFound } from "./middleware/notFound.js";
@@ -21,7 +22,7 @@ app.use(helmet());
 
 app.use(
   cors({
-    origin: env.CLIENT_URL,
+    origin: env.CLIENT_URLS.length ? env.CLIENT_URLS : undefined,
     credentials: true,
   })
 );
@@ -36,6 +37,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/homestays", homestayRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/reviews", reviewRoutes);
+app.use("/api/favorites", favoriteRoutes);
 app.use("/api/ai", aiRoutes);
 
 app.get("/", (req, res) => {
