@@ -1,189 +1,220 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PhulariStay AI
+
+PhulariStay AI is a full-stack homestay discovery and AI travel-planning platform for Uttarakhand. It combines authenticated user flows, owner CRUD tools, PostgreSQL-backed homestay data, and a Gemini-powered itinerary planner.
+
+## Stack
+
+- Frontend: Next.js App Router, React, TypeScript, Tailwind CSS
+- Backend: Express.js, Prisma, PostgreSQL
+- Authentication: JWT, Google OAuth
+- AI: Google Gemini
+- UI: reusable Loader, Toast, Modal, Button, protected routes, error boundaries
 
 ## Getting Started
 
-First, run the development server:
+Install frontend dependencies:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-
-
-## Database
-
-**Database:** PostgreSQL
-
-**Hosting:** Supabase Free Tier
-
-**ORM:** Prisma
-
-### Setup
+Install backend dependencies:
 
 ```bash
 cd backend
-
 npm install
-
 npx prisma generate
-
 npm run dev
 ```
 
-Required environment variables:
+Frontend runs at:
 
-```
-DATABASE_URL
-PORT
-CLIENT_URL
-NODE_ENV
-JWT_SECRET
-JWT_EXPIRES_IN
-GOOGLE_CLIENT_ID
-GOOGLE_CLIENT_SECRET
-GOOGLE_CALLBACK_URL
-GEMINI_API_KEY
+```text
+http://localhost:3000
 ```
 
-Frontend environment variables:
+Backend runs at:
 
+```text
+http://localhost:5000
 ```
+
+## Environment Variables
+
+Frontend `.env.local`:
+
+```env
 NEXT_PUBLIC_API_URL=http://localhost:5000/api
+```
+
+Backend `backend/.env`:
+
+```env
+DATABASE_URL=
+PORT=5000
+CLIENT_URL=http://localhost:3000
+NODE_ENV=development
+JWT_SECRET=
+JWT_EXPIRES_IN=7d
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_CALLBACK_URL=http://localhost:5000/api/auth/google/callback
+GEMINI_API_KEY=
+```
+
+## Frontend Architecture
+
+The frontend uses the App Router under `app/` with route-level pages:
+
+- `/` fetches live homestays from the backend.
+- `/dashboard` is authenticated and displays real user context plus live homestay totals.
+- `/profile` fetches the authenticated user.
+- `/owner` is role-protected for `OWNER` and `ADMIN` and provides homestay CRUD.
+- `/ai` is authenticated and provides the Gemini route planner.
+- `/login` and `/register` handle auth entry points.
+
+Shared UI and state live under `components/`:
+
+- `AuthContext` bootstraps JWT sessions from local storage and refreshes user state with `/auth/me`.
+- `ProtectedRoute` redirects guests to `/login` and role-mismatched users to `/dashboard`.
+- `ErrorBoundary` prevents blank screens in critical interactive flows.
+- `components/ui` contains reusable Button, Loader, Modal, and Toast components.
+
+Service modules under `services/` centralize backend access and prevent duplicated fetch logic.
+
+## API Integration
+
+All frontend API calls use the shared Axios client in `lib/api.ts`. The client:
+
+- normalizes `NEXT_PUBLIC_API_URL`
+- attaches `Authorization: Bearer <token>` when a JWT exists
+- applies request timeouts
+- exposes reusable error-message handling
+
+Primary frontend services:
+
+- `services/auth.service.ts`
+- `services/homestay.service.ts`
+- `services/ai.service.ts`
+
+Important API routes:
+
+```text
+POST /api/auth/register
+POST /api/auth/login
+GET  /api/auth/me
+POST /api/auth/logout
+GET  /api/auth/google
+
+GET    /api/homestays
+GET    /api/homestays/:id
+POST   /api/homestays
+PUT    /api/homestays/:id
+DELETE /api/homestays/:id
+
+POST /api/ai/travel-plan
 ```
 
 ## Authentication Flow
 
-PhulariStay AI uses JWT authentication for API access.
+1. Users register or log in with email and password, or use Google OAuth.
+2. The backend returns a JWT and user DTO.
+3. The frontend stores the JWT and user in local storage.
+4. Axios attaches the JWT to protected requests.
+5. `AuthProvider` calls `GET /api/auth/me` on reload to verify the session.
+6. `ProtectedRoute` gates dashboard, profile, owner CRUD, and AI planner routes.
+7. Logout clears local storage and calls the backend logout route.
 
-- Users register with `name`, `email`, `password`, and `role`.
-- Passwords are hashed with bcrypt before storage.
-- Public registration allows only `USER` and `OWNER`; `ADMIN` accounts must be created administratively.
-- Login returns a JWT that expires in 7 days by default.
-- The frontend stores the JWT in `localStorage` and sends it through the Axios `Authorization: Bearer <token>` header.
-- `GET /api/auth/me` refreshes the frontend user session after page reloads.
-- Logout clears the local session and calls the backend logout endpoint.
+Role protections:
 
-Protected backend mutations:
-
-- `POST /api/homestays` requires `OWNER` or `ADMIN`.
-- `PUT /api/homestays/:id` requires the owning `OWNER` or `ADMIN`.
-- `DELETE /api/homestays/:id` requires the owning `OWNER` or `ADMIN`.
-- `POST /api/bookings` requires an authenticated user.
-- `POST /api/reviews` requires an authenticated user.
-
-Protected frontend routes:
-
-- `/dashboard`
-- `/profile`
-- `/owner` for `OWNER` and `ADMIN`
-
-## Google OAuth Setup
-
-Create OAuth credentials in Google Cloud Console and add this callback URL:
-
-```
-http://localhost:5000/api/auth/google/callback
-```
-
-Set these backend environment variables:
-
-```
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-GOOGLE_CALLBACK_URL=http://localhost:5000/api/auth/google/callback
-CLIENT_URL=http://localhost:3000
-JWT_SECRET=replace-with-a-long-random-secret
-JWT_EXPIRES_IN=7d
-```
-
-Google login starts at:
-
-```
-GET /api/auth/google
-```
+- `/dashboard`, `/profile`, and `/ai` require authentication.
+- `/owner` requires `OWNER` or `ADMIN`.
+- Homestay create/update/delete routes require `OWNER` or `ADMIN`; update/delete also enforce ownership unless the user is `ADMIN`.
 
 ## AI Feature
 
-PhulariStay AI includes an AI Travel Planner powered by Google Gemini 2.5 Flash.
-Users can open `/ai`, enter a destination in Uttarakhand, duration, budget,
-travel style, and interests, then generate a markdown travel plan.
+The AI Planner at `/ai` is powered by Gemini through the backend. Users provide:
 
-Before calling Gemini, the backend queries PostgreSQL through Prisma for
-homestays matching the destination by name, location, or address. The prompt
-includes only those database homestays and instructs Gemini not to invent stay
-names, prices, amenities, ratings, addresses, or availability.
+- From
+- Destination
+- Duration
+- Budget
+- Travel style
+- Interests
 
-The backend endpoint is:
+The backend queries matching homestays from PostgreSQL and injects them into the Gemini prompt. The prompt instructs Gemini to recommend only database-provided homestays and avoid invented names, prices, amenities, ratings, addresses, or availability.
 
+Frontend AI features:
+
+- animated skeleton while Gemini responds
+- markdown rendering with tables, lists, headings, code, and constrained images
+- copy response
+- download PDF
+- local-storage plan history
+- per-plan delete and selected-plan delete
+- route-level and component-level error boundaries
+
+## Folder Structure
+
+```text
+app/
+  ai/
+  dashboard/
+  login/
+  owner/
+  profile/
+  register/
+components/
+  ui/
+  AuthContext.tsx
+  ErrorBoundary.tsx
+  ProtectedRoute.tsx
+services/
+  ai.service.ts
+  auth.service.ts
+  homestay.service.ts
+lib/
+  api.ts
+types/
+  homestay.ts
+backend/
+  prisma/
+  src/
+    controllers/
+    middleware/
+    routes/
+    services/
+    utils/
 ```
-POST http://localhost:5000/api/ai/travel-plan
+
+## Week 8 Deliverables
+
+- Zero frontend mock homestay/dashboard data
+- Authenticated dashboard
+- Protected profile, dashboard, owner CRUD, and AI planner
+- Complete homestay create/read/update/delete flow
+- Polished AI Planner
+- Responsive layouts for mobile, tablet, and desktop
+- Loading states
+- Empty states
+- Error handling
+- Error boundaries
+- Toast feedback
+- Reusable API services
+- Reusable Loader, Toast, Modal, and Button components
+
+## Verification
+
+Run before submission:
+
+```bash
+npm run lint
+npm run build
 ```
 
-Example request:
-
-```json
-{
-  "destination": "Auli",
-  "days": 3,
-  "budget": 15000,
-  "travelStyle": "Family",
-  "interests": "Snow, Trekking, Local Food"
-}
-```
-
-Example response:
-
-```json
-{
-  "success": true,
-  "plan": "## Short Overview\n..."
-}
-```
-
-The Gemini API key must be stored only in `backend/.env`:
-
-```
-GEMINI_API_KEY=your-gemini-api-key
-```
-
-To obtain a Gemini API key:
-
-1. Visit Google AI Studio.
-2. Sign in with a Google account.
-3. Open API keys and create a new key.
-4. Add the key to `backend/.env`.
-5. Restart the backend server.
-
-
+Backend health should be checked with the backend server running and environment variables configured.
 
 ## Database Schema
-![ER Diagram](docs/database_design-1.png)
 
----
+![ER Diagram](docs/database_design-1.png)

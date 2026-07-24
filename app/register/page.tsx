@@ -6,6 +6,7 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Button from "@/components/ui/Button";
+import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import { useAuth } from "@/components/AuthContext";
 import { UserRole, getAuthErrorMessage } from "@/services/auth.service";
@@ -114,7 +115,10 @@ export default function RegisterPage() {
             </label>
 
             <Button type="submit" disabled={loading} className="w-full">
-              {loading ? "Creating account..." : "Register"}
+              <span className="inline-flex items-center justify-center gap-2">
+                {loading ? <Loader size={18} /> : null}
+                {loading ? "Creating account..." : "Register"}
+              </span>
             </Button>
           </form>
 

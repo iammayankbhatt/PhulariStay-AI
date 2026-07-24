@@ -13,13 +13,15 @@ import {
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { useAuth } from "@/components/AuthContext";
 import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import Button from "@/components/ui/Button";
 import { getApiErrorMessage } from "@/lib/api";
-import { getDashboardData } from "@/services/dashboard.service";
+import { getHomestays } from "@/services/homestay.service";
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -29,15 +31,20 @@ export default function DashboardPage() {
     setError("");
 
     try {
-      const data = await getDashboardData();
-      setDashboard(data);
+      const homestays = await getHomestays();
+      setDashboard({
+        user,
+        homestays,
+        savedTrips: [],
+        recentActivity: [],
+      });
     } catch (error) {
       console.error(error);
       setError(getApiErrorMessage(error, "Unable to load dashboard data."));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
