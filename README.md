@@ -1,16 +1,127 @@
 # PhulariStay AI
 
-PhulariStay AI is a full-stack homestay discovery and AI travel-planning platform for Uttarakhand. It combines authenticated user flows, owner CRUD tools, PostgreSQL-backed homestay data, and a Gemini-powered itinerary planner.
+PhulariStay AI is a full-stack homestay discovery and AI travel-planning platform for Uttarakhand. It includes authenticated guest and owner flows, PostgreSQL-backed homestay data, booking management, reviews, wishlists, and a Gemini-powered itinerary planner.
 
-## Stack
+## Live Demo
+
+Frontend URL: `https://phulari-stay-ai.vercel.app/`
+
+Backend URL: `https://phularistay-ai.onrender.com/`
+
+## Tech Stack
 
 - Frontend: Next.js App Router, React, TypeScript, Tailwind CSS
-- Backend: Express.js, Prisma, PostgreSQL
+- Backend: Node.js, Express.js, Prisma
+- Database: Supabase PostgreSQL
 - Authentication: JWT, Google OAuth
 - AI: Google Gemini
-- UI: reusable Loader, Toast, Modal, Button, protected routes, error boundaries
+- Deployment: Vercel frontend, Render backend, Supabase database
 
-## Getting Started
+## Deployment
+
+### Frontend Deployment
+
+Deploy the root Next.js app to Vercel.
+
+Set this Vercel environment variable:
+
+```env
+NEXT_PUBLIC_API_URL=<render-backend-url>/api
+```
+
+Build command:
+
+```bash
+npm run build
+```
+
+The frontend uses `NEXT_PUBLIC_API_URL` through `lib/api.ts` for API requests. The login page also uses the same normalized API base URL for Google OAuth.
+
+### Backend Deployment
+
+Deploy the `backend/` service to Render.
+
+Recommended Render build command:
+
+```bash
+npm install && npx prisma generate
+```
+
+Recommended Render start command:
+
+```bash
+npm start
+```
+
+The backend listens on `process.env.PORT` through `src/config/env.js`, which is required for Render.
+
+### Environment Variables
+
+Store production secrets only in Vercel, Render, and Supabase dashboards. Do not commit real `.env` files or API keys.
+
+Run all Prisma migrations against Supabase before production use:
+
+```bash
+npx prisma migrate deploy
+```
+
+## Environment Variables
+
+### Frontend
+
+```env
+NEXT_PUBLIC_API_URL=<render-backend-url>/api
+```
+
+### Backend
+
+```env
+DATABASE_URL=<supabase-postgresql-connection-string>
+JWT_SECRET=<strong-secret>
+GOOGLE_CLIENT_ID=<google-client-id>
+GOOGLE_CLIENT_SECRET=<google-client-secret>
+GOOGLE_CALLBACK_URL=<render-backend-url>/api/auth/google/callback
+GEMINI_API_KEY=<gemini-api-key>
+FRONTEND_URL=<vercel-frontend-url>
+CLIENT_URLS=<vercel-frontend-url>,<optional-preview-url>
+PUBLIC_API_URL=<render-backend-url>
+NODE_ENV=production
+PORT=<render-provided-port>
+```
+
+## Production Checklist
+
+- Homepage: lists live homestays from the backend.
+- Dashboard: protected JWT route with user booking and AI history data.
+- Homestay Details: displays rooms, availability, reviews, booking, and map.
+- Booking: protected route action using `/api/bookings`.
+- Owner Dashboard: role-protected owner/admin management workflow.
+- Reviews: authenticated create/update/delete and owner reply support.
+- Wishlist: authenticated favorites workflow.
+- AI Planner: authenticated Gemini travel-plan generation.
+- Login: email/password login and Google OAuth entry.
+- Register: account creation with JWT session storage.
+- Logout: clears frontend session and calls backend logout.
+- Google OAuth: backend Passport strategy redirects to frontend dashboard.
+- Protected Routes: handled by `components/ProtectedRoute.tsx`.
+
+## API And Auth Notes
+
+- Frontend API calls are centralized through `lib/api.ts`.
+- JWTs are stored in browser local storage and attached as `Authorization: Bearer <token>`.
+- Backend JWT verification is handled by `src/middleware/auth.js`.
+- CORS uses configured frontend origins from `CLIENT_URLS`, or `FRONTEND_URL` through `CLIENT_URL`.
+- Google OAuth requires `GOOGLE_CALLBACK_URL` to match an approved redirect URI in Google Cloud Console.
+- Gemini requests are executed only on the backend, so `GEMINI_API_KEY` is not exposed to the browser.
+- Prisma uses `DATABASE_URL` from the environment and the PostgreSQL provider for Supabase.
+
+## Known Limitations
+
+- Render free tier services can cold start after inactivity.
+- Gemini API free tier usage limits can delay or block AI planner responses.
+- Google OAuth requires approved redirect URIs before sign-in works in production.
+
+## Local Development
 
 Install frontend dependencies:
 
@@ -28,244 +139,7 @@ npx prisma generate
 npm run dev
 ```
 
-Frontend runs locally at:
-
-```text
-<frontend-dev-url>
-```
-
-Backend runs locally at:
-
-```text
-<backend-dev-url>
-```
-
-## Environment Variables
-
-Frontend `.env.local`:
-
-```env
-NEXT_PUBLIC_API_URL=<backend-api-url>/api
-```
-
-Backend `backend/.env`:
-
-```env
-DATABASE_URL=
-PORT=5000
-CLIENT_URL=<frontend-url>
-CLIENT_URLS=<frontend-url>,<optional-preview-url>
-PUBLIC_API_URL=<backend-api-url>
-NODE_ENV=development
-JWT_SECRET=
-JWT_EXPIRES_IN=7d
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-GOOGLE_CALLBACK_URL=<backend-api-url>/api/auth/google/callback
-GEMINI_API_KEY=
-```
-
-## Frontend Architecture
-
-The frontend uses the App Router under `app/` with route-level pages:
-
-- `/` fetches live homestays from the backend.
-- `/dashboard` is authenticated and displays real user context plus live homestay totals.
-- `/profile` fetches the authenticated user.
-- `/owner` is role-protected for `OWNER` and `ADMIN` and provides homestay CRUD.
-- `/ai` is authenticated and provides the Gemini route planner.
-- `/login` and `/register` handle auth entry points.
-
-Shared UI and state live under `components/`:
-
-- `AuthContext` bootstraps JWT sessions from local storage and refreshes user state with `/auth/me`.
-- `ProtectedRoute` redirects guests to `/login` and role-mismatched users to `/dashboard`.
-- `ErrorBoundary` prevents blank screens in critical interactive flows.
-- `components/ui` contains reusable Button, Loader, Modal, and Toast components.
-
-Service modules under `services/` centralize backend access and prevent duplicated fetch logic.
-
-## API Integration
-
-All frontend API calls use the shared Axios client in `lib/api.ts`. The client:
-
-- normalizes `NEXT_PUBLIC_API_URL`
-- attaches `Authorization: Bearer <token>` when a JWT exists
-- applies request timeouts
-- exposes reusable error-message handling
-
-Primary frontend services:
-
-- `services/auth.service.ts`
-- `services/homestay.service.ts`
-- `services/ai.service.ts`
-
-Important API routes:
-
-```text
-POST /api/auth/register
-POST /api/auth/login
-GET  /api/auth/me
-POST /api/auth/logout
-GET  /api/auth/google
-
-GET    /api/homestays
-GET    /api/homestays/:id
-POST   /api/homestays
-PUT    /api/homestays/:id
-DELETE /api/homestays/:id
-
-POST /api/ai/travel-plan
-```
-
-## Authentication Flow
-
-1. Users register or log in with email and password, or use Google OAuth.
-2. The backend returns a JWT and user DTO.
-3. The frontend stores the JWT and user in local storage.
-4. Axios attaches the JWT to protected requests.
-5. `AuthProvider` calls `GET /api/auth/me` on reload to verify the session.
-6. `ProtectedRoute` gates dashboard, profile, owner CRUD, and AI planner routes.
-7. Logout clears local storage and calls the backend logout route.
-
-Role protections:
-
-- `/dashboard`, `/profile`, and `/ai` require authentication.
-- `/owner` requires `OWNER` or `ADMIN`.
-- Homestay create/update/delete routes require `OWNER` or `ADMIN`; update/delete also enforce ownership unless the user is `ADMIN`.
-
-## AI Feature
-
-The AI Planner at `/ai` is powered by Gemini through the backend. Users provide:
-
-- From
-- Destination
-- Duration
-- Budget
-- Travel style
-- Interests
-
-The backend queries matching homestays from PostgreSQL and injects them into the Gemini prompt. The prompt instructs Gemini to recommend only database-provided homestays and avoid invented names, prices, amenities, ratings, addresses, or availability.
-
-Frontend AI features:
-
-- animated skeleton while Gemini responds
-- markdown rendering with tables, lists, headings, code, and constrained images
-- copy response
-- download PDF
-- local-storage plan history
-- per-plan delete and selected-plan delete
-- route-level and component-level error boundaries
-
-## Folder Structure
-
-```text
-app/
-  ai/
-  dashboard/
-  login/
-  owner/
-  profile/
-  register/
-components/
-  ui/
-  AuthContext.tsx
-  ErrorBoundary.tsx
-  ProtectedRoute.tsx
-services/
-  ai.service.ts
-  auth.service.ts
-  homestay.service.ts
-lib/
-  api.ts
-types/
-  homestay.ts
-backend/
-  prisma/
-  src/
-    controllers/
-    middleware/
-    routes/
-    services/
-    utils/
-```
-
-## Week 8 Deliverables
-
-- Zero frontend mock homestay/dashboard data
-- Authenticated dashboard
-- Protected profile, dashboard, owner CRUD, and AI planner
-- Complete homestay create/read/update/delete flow
-- Polished AI Planner
-- Responsive layouts for mobile, tablet, and desktop
-- Loading states
-- Empty states
-- Error handling
-- Error boundaries
-- Toast feedback
-- Reusable API services
-- Reusable Loader, Toast, Modal, and Button components
-
-## Verification
-
-Run before submission:
-
-```bash
-npm run lint
-npm run build
-```
-
-Backend health should be checked with the backend server running and environment variables configured.
-
-## Deployment
-
-### Vercel Frontend
-
-Set the frontend environment variable:
-
-```env
-NEXT_PUBLIC_API_URL=<render-backend-url>/api
-```
-
-Build command:
-
-```bash
-npm run build
-```
-
-The frontend expects the backend URL to come from `NEXT_PUBLIC_API_URL`; no local backend URL is required in production.
-
-### Render Backend
-
-Set the backend environment variables:
-
-```env
-DATABASE_URL=<postgresql-connection-string>
-CLIENT_URL=<vercel-frontend-url>
-CLIENT_URLS=<vercel-frontend-url>,<optional-vercel-preview-url>
-PUBLIC_API_URL=<render-backend-url>
-NODE_ENV=production
-JWT_SECRET=<strong-secret>
-JWT_EXPIRES_IN=7d
-GOOGLE_CLIENT_ID=<google-client-id>
-GOOGLE_CLIENT_SECRET=<google-client-secret>
-GOOGLE_CALLBACK_URL=<render-backend-url>/api/auth/google/callback
-GEMINI_API_KEY=<gemini-api-key>
-```
-
-Build command:
-
-```bash
-npm install && npx prisma generate
-```
-
-Start command:
-
-```bash
-cd backend && npm start
-```
-
-Run pending SQL migrations before deployment or through a trusted database console if Prisma migrate is unavailable in the hosted environment.
+Use placeholder env files as templates and keep real credentials out of source control.
 
 ## Database Schema
 
