@@ -10,6 +10,7 @@ import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import { useAuth } from "@/components/AuthContext";
 import { getAuthErrorMessage } from "@/services/auth.service";
+import { resolveApiBaseUrl } from "@/lib/api";
 
 function LoginContent() {
   const router = useRouter();
@@ -40,11 +41,7 @@ function LoginContent() {
     }
   };
 
-  const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "/api").replace(
-    /\/+$/,
-    ""
-  );
-  const googleUrl = `${apiUrl}/auth/google`;
+  const googleUrl = `${resolveApiBaseUrl()}/auth/google`;
 
   return (
     <>
